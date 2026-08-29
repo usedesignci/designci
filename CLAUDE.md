@@ -72,8 +72,9 @@ M4 CLI + first npm publish + repo goes public — built; publish + public flip a
    human steps, see RELEASING.md
 M5 Figma plugin (lint + snapshot export) — done; Community publish is a human
    step (Figma assigns the plugin id then)
-M6 GitHub Action — built in action/ (staging tree for usedesignci/designci-action);
-   repo split + Marketplace publish are human steps, see RELEASING.md
+M6 GitHub Action — done; action/ is the source of truth, copied verbatim to
+   usedesignci/designci-action. Tags + Marketplace publish wait on the first
+   npm publish, see RELEASING.md
 M7 Rails control plane — done (usedesignci/cloud): ingest API + dashboard;
    billing, GitHub App and Figma OAuth deliberately deferred
 M8 release pipeline + demo kit — next

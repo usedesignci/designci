@@ -64,16 +64,16 @@ except `tests/action-contract.test.mjs`, which stays here (it needs the
 engine). The Marketplace requires the action to live in its own repository
 with `action.yml` at the root.
 
-1. Create the empty repo `usedesignci/designci-action` (public — Marketplace
-   requires it; do this together with this repo's public flip).
-2. Copy the tree: `cp -r action/* action/.github <clone>/ && cd <clone>`,
-   commit, push to main. `node --test '*.test.mjs'` must pass there with no
-   install step.
-3. The action runs `npx designci@<version>`, so the CLI must be on npm first
-   (see the first-release checklist above).
-4. Tag `v1.0.0` AND the moving major `v1` (`git tag v1 && git push origin
-   v1 v1.0.0`) — workflows reference `usedesignci/designci-action@v1`. On
-   later releases, move `v1` forward (`git tag -f v1 && git push -f origin v1`).
+1. ~~Create the repo~~ Done: `usedesignci/designci-action` exists, public,
+   populated from `action/` (2026-08-29).
+2. On later action releases, re-copy the tree:
+   `cp -r action/* action/.github <clone>/`, commit, push.
+   `node --test '*.test.mjs'` must pass there with no install step.
+3. The action runs `npx designci@<version>`, so the CLI must be on npm before
+   tagging (see "Releasing" above).
+4. Tag `v1.0.0` AND the moving major `v1` (`git tag v1.0.0 v1 && git push
+   origin v1 v1.0.0`) — workflows reference `usedesignci/designci-action@v1`.
+   On later releases, move `v1` forward (`git tag -f v1 && git push -f origin v1`).
 5. Publish to the Marketplace from the repo's Releases page (category:
    Continuous Integration).
 
