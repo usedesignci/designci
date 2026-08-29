@@ -1,0 +1,14 @@
+{
+  "name": "@designci/figma-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Design CI for Figma: run Design Check and export a design-system snapshot.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@designci/core": "workspace:*"
+  }
+}

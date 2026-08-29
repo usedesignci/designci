@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; padding: 12px 14px;
+    font: 11px/1.5 Inter, system-ui, sans-serif;
+    color: var(--figma-color-text, #111);
+    background: var(--figma-color-bg, #fff);
+  }
+  h1 { font-size: 13px; margin: 0 0 2px; }
+  .sub { color: var(--figma-color-text-secondary, #666); margin: 0 0 12px; }
+  .row { display: flex; gap: 8px; margin-bottom: 12px; }
+  button {
+    font: inherit; font-weight: 600; padding: 6px 12px; border-radius: 6px;
+    border: 1px solid var(--figma-color-border, #ccc);
+    background: var(--figma-color-bg-secondary, #f5f5f5);
+    color: inherit; cursor: pointer;
+  }
+  button.primary {
+    background: var(--figma-color-bg-brand, #0d99ff);
+    border-color: transparent; color: #fff;
+  }
+  #list { display: none; }
+  .violation {
+    border-left: 3px solid var(--figma-color-border, #ccc);
+    padding: 4px 8px; margin-bottom: 8px;
+  }
+  .violation.error { border-left-color: #f24822; }
+  .violation.warn  { border-left-color: #ffcd29; }
+  .violation .name { font-weight: 600; }
+  .violation .msg  { color: var(--figma-color-text-secondary, #666); }
+  .clean { color: #14ae5c; font-weight: 600; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; font-weight: 600; }
+  textarea {
+    width: 100%; height: 110px; box-sizing: border-box; margin: 8px 0 6px;
+    font: 10px/1.4 ui-monospace, monospace;
+    color: inherit; background: var(--figma-color-bg-secondary, #f5f5f5);
+    border: 1px solid var(--figma-color-border, #ccc); border-radius: 6px;
+  }
+  .error-text { color: #f24822; }
+  .ok-text { color: #14ae5c; }
+  #health { font-weight: 600; margin: 8px 0; }
+</style>
+</head>
+<body>
+  <h1>Design CI</h1>
+  <p class="sub">Check this file's tokens, or export a snapshot for CI.</p>
+
+  <div class="row">
+    <button id="check" class="primary">Run Design Check</button>
+    <button id="export">Export snapshot</button>
+  </div>
+
+  <div id="status" class="sub"></div>
+  <div id="health"></div>
+  <div id="list"></div>
+
+  <details>
+    <summary>Check config</summary>
+    <p class="sub">Paste your project's designci.config.json. It is stored in this
+    file, so the whole team shares one policy.</p>
+    <textarea id="config" spellcheck="false" placeholder='{ "rules": { "duplicate-token": "error" } }'></textarea>
+    <div class="row">
+      <button id="save-config">Save config</button>
+      <span id="config-status" class="sub"></span>
+    </div>
+  </details>
+
+<script>
+  const $ = (id) => document.getElementById(id)
+  const post = (message) => parent.postMessage({ pluginMessage: message }, '*')
+
+  $('check').onclick = () => { $('status').textContent = 'Checking…'; post({ type: 'check' }) }
+  $('export').onclick = () => { $('status').textContent = 'Exporting…'; post({ type: 'export' }) }
+  $('save-config').onclick = () => post({ type: 'save-config', json: $('config').value })
+  post({ type: 'load-config' })
+
+  function download(fileName, text) {
+    const blob = new Blob([text], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+  }
+
+  function renderResult(result, tokenCount) {
+    const list = $('list')
+    const active = result.violations.filter((v) => v.baselined !== true)
+    $('status').textContent = tokenCount + ' tokens checked'
+    $('health').textContent = 'Design health: ' + result.health.overall + '%'
+
+    const parts = []
+    for (const v of active) {
+      parts.push(
+        '<div class="violation ' + escapeHtml(v.severity) + '">' +
+        '<div class="name">' + escapeHtml(v.tokenName || v.code) + '</div>' +
+        '<div class="msg">' + escapeHtml(v.message) + '</div>' +
+        (v.suggestion ? '<div class="msg">fix: ' + escapeHtml(v.suggestion) + '</div>' : '') +
+        '</div>')
+    }
+    for (const d of result.diagnostics) {
+      parts.push(
+        '<div class="violation warn">' +
+        '<div class="name">' + escapeHtml(d.code) + '</div>' +
+        '<div class="msg">' + escapeHtml(d.message) + '</div>' +
+        '</div>')
+    }
+    if (parts.length === 0) {
+      parts.push('<div class="clean">No issues found in this file.</div>')
+    }
+    list.innerHTML = parts.join('')
+    list.style.display = 'block'
+  }
+
+  window.onmessage = (event) => {
+    const message = event.data.pluginMessage
+    if (!message) return
+    if (message.type === 'result') renderResult(message.result, message.tokenCount)
+    if (message.type === 'snapshot') {
+      $('status').textContent = 'Exported ' + message.tokenCount + ' tokens.'
+      download(message.fileName, message.json)
+    }
+    if (message.type === 'config') {
+      if (message.json !== undefined) $('config').value = message.json
+      const status = $('config-status')
+      if (message.error) {
+        status.textContent = message.error
+        status.className = 'error-text'
+      } else if (message.saved) {
+        status.textContent = 'Saved to this file.'
+        status.className = 'ok-text'
+      } else {
+        status.textContent = ''
+      }
+    }
+  }
+</script>
+</body>
+</html>

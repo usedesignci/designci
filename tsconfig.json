@@ -12,6 +12,12 @@
     },
     {
       "path": "packages/cli/tsconfig.test.json"
+    },
+    {
+      "path": "packages/figma-plugin"
+    },
+    {
+      "path": "packages/figma-plugin/tsconfig.test.json"
     }
   ]
 }

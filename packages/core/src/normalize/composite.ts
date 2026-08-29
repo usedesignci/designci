@@ -10,6 +10,7 @@
 import { normalizeColor } from './color.js'
 import { type DimensionOptions, normalizeDimension, normalizeFontWeight, normalizeNumber } from './dimension.js'
 import {
+  round,
   type DimensionValue,
   type FontFamilyValue,
   type LengthValue,
@@ -45,7 +46,10 @@ export function fontFamiliesEqual(a: FontFamilyValue, b: FontFamilyValue): boole
 /**
  * Line height is the one field where unitless and dimensional forms are both
  * idiomatic and genuinely different: `1.5` scales with font size, `24px` does
- * not. We keep the distinction rather than multiplying one into the other.
+ * not. We keep that distinction — but a *percentage* line height is the same
+ * decision as the unitless multiple (both scale with font size; Figma exports
+ * `150%`, stylesheets write `1.5`), so percent collapses to the number and the
+ * author's raw is kept (invariant 8).
  */
 function normalizeLineHeight(
   input: string | number,
@@ -53,7 +57,11 @@ function normalizeLineHeight(
 ): LengthValue | NumberValue | UnnormalizedValue {
   const text = String(input).trim()
   if (/^-?[\d.]+$/.test(text)) return normalizeNumber(text)
-  return normalizeDimension(text, options)
+  const length = normalizeDimension(text, options)
+  if (length.kind === 'relative' && length.unit === '%') {
+    return { kind: 'number', raw: String(input), value: round(length.value / 100, 6) }
+  }
+  return length
 }
 
 export interface TypographyInput {

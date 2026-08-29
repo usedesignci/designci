@@ -12,9 +12,13 @@ Deterministic rules, no AI in the check path.
 
 ## Status
 
-Pre-release, and not yet published to npm. The engine (`@designci/core`) and the
-CLI (`designci`) are built; the Figma plugin, GitHub Action and dashboard land in
-later milestones — see the Status section of [CLAUDE.md](./CLAUDE.md).
+Pre-release, and not yet published to npm. The engine (`@designci/core`), the
+CLI (`designci`) and the Figma plugin are built; the GitHub Action and dashboard
+land in later milestones — see the Status section of [CLAUDE.md](./CLAUDE.md).
+
+The [Figma plugin](./packages/figma-plugin) exports the `figma.snapshot.json`
+that the CLI's `figma` source reads, and runs the same engine inside Figma for
+single-file checks — duplicate values, dangling aliases, unsupported paints.
 
 ## Quick start
 

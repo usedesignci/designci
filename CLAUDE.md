@@ -55,10 +55,13 @@ These are not preferences. Breaking one silently is worse than not shipping the 
     authoritative; where none is declared, inferValue reads the value's syntax.
     `--color-x: 4px` is a dimension. Typing by name is the first step toward the
     name-based matching invariant 4 forbids.
-14. Conditional CSS is not a default. Declarations inside @media, @supports or
-    @container are reported and skipped — a dark-theme override is a different
-    mode of a token, and comparing it against a design source's default would
-    manufacture drift.
+14. Conditional values are not defaults. CSS declarations inside @media,
+    @supports or @container are reported and skipped; Figma collections export
+    only their default mode, with extra modes surfaced in a diagnostic. A theme
+    override compared against the other side's default would manufacture drift.
+15. In the plugin, the sandbox boundary is collect.ts and it contains no
+    decisions. Every judgment lives in extract.ts, which is pure over
+    serializable shapes and fully tested outside Figma.
 
 ## Status
 M1 core domain + rule runner — done
@@ -67,8 +70,9 @@ M2b config, mappings, baseline — done
 M3 adapters (tokens JSON, CSS, Tailwind) — done
 M4 CLI + first npm publish + repo goes public — built; publish + public flip are
    human steps, see RELEASING.md
-M5 Figma plugin (lint + snapshot export) — next
-M6 GitHub Action — not started
+M5 Figma plugin (lint + snapshot export) — done; Community publish is a human
+   step (Figma assigns the plugin id then)
+M6 GitHub Action — next
 M7 Rails control plane — not started
 M8 release pipeline + demo kit — not started
 
@@ -82,6 +86,10 @@ error-severity drift, 2 could not run. A source that fails to load is a 2, never
 a green check that silently compared less than it was asked to.
 
 ## Layout
+packages/figma-plugin/src/
+  extract.ts   pure: serializable Figma shapes -> DesignSystemSnapshot
+  collect.ts   the only module touching the figma global; contains no decisions
+  main.ts      plugin entry; ui.html the plugin UI; build.mjs esbuild bundle
 packages/cli/src/
   main.ts      the designci executable; commands/ init + check; output/ render
   project.ts   the CLI's only I/O: read config, baseline and sources off disk
@@ -96,7 +104,8 @@ packages/core/src/
   fixtures/    small-system: 25 tokens, Figma + CSS variants, 3 seeded drifts
 
 fixtures/small-system.ts is the shared test corpus, with small-system-css.ts
-holding the same system as real stylesheet text. Every downstream milestone tests
+holding the same system as real stylesheet text and the plugin's
+fixtures/small-system-figma.ts holding it as a Figma document export. Every downstream milestone tests
 against these rather than inventing new data.
 
 Adapters live in core rather than in separate packages: they are pure and
