@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { createBaseline } from '../baseline/apply.js'
+import { BASELINE_SCHEMA_VERSION } from '../domain/baseline.js'
 import type { CheckConfig } from '../domain/config.js'
 import { ruleId } from '../domain/ids.js'
 import type { Rule } from '../domain/rule.js'
@@ -131,5 +133,121 @@ describe('runCheck', () => {
     expect(result.violations).toEqual([])
     expect(result.counts).toEqual({ error: 0, warn: 0, info: 0, total: 0 })
     expect(result.health.overall).toBe(100)
+  })
+})
+
+describe('runCheck with a baseline', () => {
+  const unbaselined = runCheck({ snapshots: fixture.snapshots, rules: allRules, config: base })
+  const baseline = createBaseline(unbaselined.violations)
+
+  it('stops accepted drift from failing CI', () => {
+    const result = runCheck({
+      snapshots: fixture.snapshots,
+      rules: allRules,
+      config: base,
+      baseline,
+    })
+    expect(result.counts).toEqual({ error: 0, warn: 0, info: 0, total: 0 })
+    expect(result.baselinedCounts).toEqual({ error: 1, warn: 2, info: 0, total: 3 })
+    expect(shouldFail(result)).toBe(false)
+  })
+
+  it('still reports the suppressed violations, marked', () => {
+    const result = runCheck({
+      snapshots: fixture.snapshots,
+      rules: allRules,
+      config: base,
+      baseline,
+    })
+    expect(result.violations).toHaveLength(3)
+    expect(result.violations.every((violation) => violation.baselined === true)).toBe(true)
+  })
+
+  it('still counts suppressed drift against health', () => {
+    // A baseline records what a team accepted, not what stopped being drift. If
+    // suppressing raised the score, the drift trend would measure how much teams
+    // baseline rather than how healthy their system is.
+    const result = runCheck({
+      snapshots: fixture.snapshots,
+      rules: allRules,
+      config: base,
+      baseline,
+    })
+    expect(result.health).toEqual(unbaselined.health)
+    expect(result.health.overall).toBe(97)
+  })
+
+  it('fails on drift that appears after the baseline was written', () => {
+    // Baseline everything, then drop the mapping for space.md so a new
+    // missing-token violation appears that nobody has accepted.
+    const config: CheckConfig = {
+      ...base,
+      mappings: base.mappings.filter((mapping) => mapping.from.tokenId !== 'space.md'),
+      rules: { 'missing-token': { severity: 'error' } },
+    }
+    const result = runCheck({ snapshots: fixture.snapshots, rules: allRules, config, baseline })
+    expect(result.counts.error).toBe(1)
+    expect(result.violations[0]).toMatchObject({
+      ruleId: 'missing-token',
+      tokenName: 'space.md',
+    })
+    expect(shouldFail(result)).toBe(true)
+  })
+
+  it('sorts unbaselined violations ahead of accepted ones', () => {
+    const partial = createBaseline(
+      unbaselined.violations.filter((violation) => violation.severity === 'error'),
+    )
+    const result = runCheck({
+      snapshots: fixture.snapshots,
+      rules: allRules,
+      config: base,
+      baseline: partial,
+    })
+    // The baselined one is an error; it still sorts below the two live warnings.
+    expect(result.violations.map((violation) => violation.baselined ?? false)).toEqual([
+      false,
+      false,
+      true,
+    ])
+  })
+
+  it('reports entries that no longer match so the baseline can be pruned', () => {
+    const stale = createBaseline([
+      {
+        ruleId: ruleId('missing-token'),
+        severity: 'warn' as const,
+        code: 'missing-token',
+        message: 'gone',
+        sourceId: fixture.CSS_SOURCE_ID,
+        tokenName: 'color.gone',
+      },
+    ])
+    const result = runCheck({
+      snapshots: fixture.snapshots,
+      rules: allRules,
+      config: base,
+      baseline: stale,
+    })
+    expect(result.staleBaselineEntries).toHaveLength(1)
+    expect(result.staleBaselineEntries[0]?.tokenName).toBe('color.gone')
+  })
+
+  it('stays deterministic with a baseline applied (invariant 1)', () => {
+    const run = (): string =>
+      JSON.stringify(
+        runCheck({ snapshots: fixture.snapshots, rules: allRules, config: base, baseline }),
+      )
+    expect(run()).toBe(run())
+  })
+
+  it('treats an empty baseline as accepting nothing', () => {
+    const result = runCheck({
+      snapshots: fixture.snapshots,
+      rules: allRules,
+      config: base,
+      baseline: { schemaVersion: BASELINE_SCHEMA_VERSION, entries: [] },
+    })
+    expect(canonicalize(result)).toBe(canonicalize(unbaselined))
   })
 })

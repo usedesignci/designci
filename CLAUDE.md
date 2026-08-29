@@ -42,12 +42,19 @@ These are not preferences. Breaking one silently is worse than not shipping the 
    carry schemaVersion.
 10. Optional means absent. exactOptionalPropertyTypes is on; omit optional keys
     rather than setting undefined. Keeps JSON and baseline fingerprints stable.
+11. Baselines suppress CI failure, never the drift. Baselined violations stay in
+    CheckResult and still count in healthScore(). If suppressing raised the
+    score, the drift trend would measure how much teams baseline rather than how
+    healthy their system is.
+12. Core never touches the filesystem. parseConfig and parseBaseline validate an
+    already-decoded value; the CLI reads files, and the Figma plugin — which has
+    no filesystem at all — parses the same formats from its own storage.
 
 ## Status
 M1 core domain + rule runner — done
 M2a value normalization — done
-M2b config, mappings, baseline — next
-M3 adapters (tokens JSON, CSS, Tailwind) — not started
+M2b config, mappings, baseline — done
+M3 adapters (tokens JSON, CSS, Tailwind) — next
 M4 CLI + first npm publish + repo goes public — not started
 M5 Figma plugin (lint + snapshot export) — not started
 M6 GitHub Action — not started
@@ -60,8 +67,10 @@ implemented — an accidental `pnpm publish -r` burns a name permanently.
 ## Layout
 packages/core/src/
   domain/      token, snapshot, source, rule, violation, result
-  normalize/   color, dimension, composite (typography+shadow), types
-  runner/      run (the rule runner), order (total ordering)
+  normalize/   color, dimension, composite (typography+shadow), equal, types
+  config/      parse (pure validation of a decoded config document)
+  baseline/    fingerprint (drift identity), apply, parse
+  runner/      run (the rule runner), order (total ordering), context
   rules/       one rule per file
   fixtures/    small-system: 25 tokens, Figma + CSS variants, 3 seeded drifts
 

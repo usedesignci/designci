@@ -53,10 +53,16 @@ export function canonicalize(value: unknown): string {
 }
 
 /**
- * Orders violations: severity, then source, then token, then rule, then message,
- * then location, then a canonical serialization as the final tiebreaker.
+ * Orders violations: unbaselined before baselined, then severity, source, token,
+ * rule, message, location, and a canonical serialization as the final
+ * tiebreaker.
  */
 export function compareViolations(a: Violation, b: Violation): number {
+  // Actionable violations first: a baselined error is accepted debt and must not
+  // sit above an unbaselined warning someone has to fix now.
+  const byBaselined = Number(a.baselined ?? false) - Number(b.baselined ?? false)
+  if (byBaselined !== 0) return byBaselined
+
   const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]
   if (bySeverity !== 0) return bySeverity
 

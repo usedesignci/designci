@@ -31,7 +31,22 @@ result.violations      // sorted, deterministic, JSON-stable
 
 Each source — a Figma export, a tokens file, a stylesheet — becomes a
 `DesignSystemSnapshot`. Rules read snapshots and emit findings; the runner
-attaches severity from config, sorts, and scores.
+attaches severity from config, applies any baseline, sorts, and scores.
+
+Config is written as policy plus explicit mappings:
+
+```json
+{
+  "rules": { "token-value-mismatch": "error", "duplicate-token": "warn" },
+  "mappings": [
+    { "figma": "radius.lg", "css": "--radius-lg" }
+  ]
+}
+```
+
+Core validates that document but never reads it off disk — `parseConfig` and
+`parseBaseline` take an already-decoded value. The CLI does the file I/O; the
+Figma plugin has no filesystem and parses the same formats from plugin storage.
 
 ### Values are compared, never strings
 
@@ -49,6 +64,17 @@ The engine will not decide that `color/brand/primary` means `--color-primary`.
 Cross-source relationships come from explicit mappings in config. A design token
 with no mapping is reported as unmapped, which is a fact; guessing at a match
 would produce a confident report about a relationship nobody stated.
+
+### Adoption does not start with a red build
+
+A real design system has years of accumulated drift, so failing the first build
+on all of it just gets the tool removed. A baseline records the current state as
+accepted; CI then fails only on drift introduced *after* it.
+
+A baseline suppresses the failure, not the drift. Accepted violations stay in the
+result and still count against the health score, so the dashboard keeps telling
+the truth and the number improves only when the system does. Entries that stop
+matching are reported as stale, so a fixed drift cannot silently come back.
 
 ### Runs are reproducible
 

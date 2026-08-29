@@ -14,7 +14,14 @@ export interface ParseDiagnostic {
   /** Stable machine code, e.g. 'unparsable-value' or 'unsupported-token-type'. */
   readonly code: string
   readonly message: string
-  readonly sourceId: SourceId
+  /**
+   * The source this fault came from. Always set for diagnostics produced while
+   * parsing a source; absent for documents that are not sources, such as the
+   * config file, which use `path` instead.
+   */
+  readonly sourceId?: SourceId
+  /** Structural location within the parsed document, e.g. `mappings[2]`. */
+  readonly path?: string
   /** The input that could not be parsed, verbatim (invariant 8). */
   readonly raw?: string
   readonly location?: SourceLocation

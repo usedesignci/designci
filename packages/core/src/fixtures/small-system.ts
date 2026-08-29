@@ -263,3 +263,20 @@ export const mappings: readonly TokenMapping[] = figmaSpecs
 
 /** Default policy for the corpus: every shipped rule at its default severity. */
 export const config: CheckConfig = { rules: {}, mappings }
+
+/**
+ * The same mappings in the form a team actually commits, before `parseConfig`
+ * expands them. Downstream milestones read config through the parser, so the
+ * corpus carries the authoring shape as well as the parsed one; the suite
+ * asserts the two agree.
+ */
+export const configDocument: {
+  readonly mappings: readonly Record<string, string>[]
+} = {
+  mappings: figmaSpecs
+    .filter((spec) => spec.path.join('.') !== 'color.feedback.destructive')
+    .map((spec) => ({
+      figma: spec.path.join('.'),
+      css: `--${spec.path.join('-')}`,
+    })),
+}

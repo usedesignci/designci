@@ -1,3 +1,4 @@
+import type { BaselineEntry } from './baseline.js'
 import type { ParseDiagnostic } from './diagnostic.js'
 import type { HealthScore } from '../health.js'
 import type { ActiveSeverity, Violation } from './violation.js'
@@ -19,9 +20,20 @@ export interface ViolationCounts {
  */
 export interface CheckResult {
   readonly schemaVersion: number
-  /** Sorted by `compareViolations`. */
+  /**
+   * Every violation found, baselined ones included, sorted by
+   * `compareViolations` — which puts unbaselined violations first.
+   */
   readonly violations: readonly Violation[]
+  /** Counts of violations that are *not* baselined. These decide CI. */
   readonly counts: ViolationCounts
+  /**
+   * Counts of violations a baseline suppressed. Reported so a team can see the
+   * debt it has accepted; these do not fail CI but do affect the health score.
+   */
+  readonly baselinedCounts: ViolationCounts
+  /** Baseline entries that matched nothing this run and can be pruned. */
+  readonly staleBaselineEntries: readonly BaselineEntry[]
   /** Every source's parse diagnostics, gathered (invariant 7). */
   readonly diagnostics: readonly ParseDiagnostic[]
   readonly health: HealthScore
@@ -35,7 +47,10 @@ export function countViolations(violations: readonly Violation[]): ViolationCoun
   return { ...counts, total: violations.length }
 }
 
-/** True when a run should fail CI: any `error`-severity violation. */
+/**
+ * True when a run should fail CI: any `error`-severity violation that a baseline
+ * has not accepted.
+ */
 export function shouldFail(result: CheckResult): boolean {
   return result.counts.error > 0
 }

@@ -37,4 +37,11 @@ export interface RuleFinding {
 export interface Violation extends RuleFinding {
   readonly ruleId: RuleId
   readonly severity: ActiveSeverity
+  /**
+   * Set only when a baseline entry suppressed this violation. Suppressed
+   * violations do not fail CI, but they are still reported and still count
+   * against the health score — a baseline records what a team has accepted for
+   * now, not what has stopped being drift.
+   */
+  readonly baselined?: true
 }

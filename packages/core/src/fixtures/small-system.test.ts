@@ -9,9 +9,11 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { parseConfig } from '../config/parse.js'
 import { tokenName } from '../domain/token.js'
 import { allRules } from '../rules/index.js'
 import { runCheck } from '../runner/run.js'
+import { configDocument } from './small-system.js'
 import * as fixture from './small-system.js'
 
 const result = runCheck({
@@ -46,6 +48,15 @@ describe('small-system corpus', () => {
     )
     expect(primary?.raw).toBe('#FF6B00')
     expect(cssPrimary?.raw).toBe('rgb(255 107 0)')
+  })
+
+  it('expands its authoring-form config to exactly the mappings the rules use', () => {
+    // Pins the config format against the corpus: what a team writes must expand
+    // to what the engine compares.
+    const parsed = parseConfig(configDocument, { knownRuleIds: allRules.map((rule) => rule.id) })
+    if (!parsed.ok) throw new Error('expected the corpus config to parse')
+    expect(parsed.diagnostics).toEqual([])
+    expect(parsed.value.mappings).toEqual(fixture.mappings)
   })
 
   it('maps every design token except the one seeded as missing (invariant 4)', () => {
