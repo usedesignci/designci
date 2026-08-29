@@ -1,0 +1,18 @@
+{
+  "name": "@designci/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Design CI engine: domain model, value normalization, and the deterministic rule runner.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false
+}
