@@ -24,3 +24,4 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter @designci/figma-plugin build
+      - run: pnpm test:action

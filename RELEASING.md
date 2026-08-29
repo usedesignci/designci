@@ -49,3 +49,27 @@ Steps 2, 3, 5, 6, 7, 8. Version bumps follow semver against the *wire formats*
 as much as the API: a change to `DesignSystemSnapshot`, `CheckResult`, config or
 baseline schema is at least a minor, with the schemaVersion bumped and the old
 version still readable.
+
+## Publishing the GitHub Action (M6 human steps)
+
+The action is developed in this repo under `action/` — that directory's
+contents ARE the future `usedesignci/designci-action` repo root, verbatim,
+except `tests/action-contract.test.mjs`, which stays here (it needs the
+engine). The Marketplace requires the action to live in its own repository
+with `action.yml` at the root.
+
+1. Create the empty repo `usedesignci/designci-action` (public — Marketplace
+   requires it; do this together with this repo's public flip).
+2. Copy the tree: `cp -r action/* action/.github <clone>/ && cd <clone>`,
+   commit, push to main. `node --test '*.test.mjs'` must pass there with no
+   install step.
+3. The action runs `npx designci@<version>`, so the CLI must be on npm first
+   (see the first-release checklist above).
+4. Tag `v1.0.0` AND the moving major `v1` (`git tag v1 && git push origin
+   v1 v1.0.0`) — workflows reference `usedesignci/designci-action@v1`. On
+   later releases, move `v1` forward (`git tag -f v1 && git push -f origin v1`).
+5. Publish to the Marketplace from the repo's Releases page (category:
+   Continuous Integration).
+
+`action/` in this repo stays the source of truth; releasing a new action
+version means re-copying and re-tagging.

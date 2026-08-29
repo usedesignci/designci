@@ -72,8 +72,9 @@ M4 CLI + first npm publish + repo goes public — built; publish + public flip a
    human steps, see RELEASING.md
 M5 Figma plugin (lint + snapshot export) — done; Community publish is a human
    step (Figma assigns the plugin id then)
-M6 GitHub Action — next
-M7 Rails control plane — not started
+M6 GitHub Action — built in action/ (staging tree for usedesignci/designci-action);
+   repo split + Marketplace publish are human steps, see RELEASING.md
+M7 Rails control plane — next
 M8 release pipeline + demo kit — not started
 
 All packages stay private: true until the human-run first publish (RELEASING.md)
@@ -90,6 +91,10 @@ packages/figma-plugin/src/
   extract.ts   pure: serializable Figma shapes -> DesignSystemSnapshot
   collect.ts   the only module touching the figma global; contains no decisions
   main.ts      plugin entry; ui.html the plugin UI; build.mjs esbuild bundle
+action/         staging tree for usedesignci/designci-action: action.yml,
+                annotate.mjs (dependency-free formatter), node:test suite;
+                tests/action-contract.test.mjs runs it against a real engine
+                result, monorepo-only
 packages/cli/src/
   main.ts      the designci executable; commands/ init + check; output/ render
   project.ts   the CLI's only I/O: read config, baseline and sources off disk

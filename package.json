@@ -11,7 +11,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "tsc -b --clean"
+    "clean": "tsc -b --clean",
+    "test:action": "node --test 'action/*.test.mjs' 'tests/*.test.mjs'"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.136.0",

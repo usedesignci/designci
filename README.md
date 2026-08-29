@@ -20,6 +20,10 @@ The [Figma plugin](./packages/figma-plugin) exports the `figma.snapshot.json`
 that the CLI's `figma` source reads, and runs the same engine inside Figma for
 single-file checks — duplicate values, dangling aliases, unsupported paints.
 
+The [GitHub Action](./action) (staging tree for `usedesignci/designci-action`)
+wraps the CLI for pull requests: inline annotations at the drifted line, a job
+summary with the health score, and the CLI's exit code as the job result.
+
 ## Quick start
 
 ```bash

@@ -1,0 +1,79 @@
+# Design CI — the GitHub Action.
+#
+# A thin wrapper over the published `designci` CLI: it runs `designci check
+# --json`, turns violations into PR annotations and a job summary, and exits
+# with the CLI's own code. The exit codes are the CLI's contract:
+#   0  no unaccepted error-severity drift
+#   1  drift that should block the merge
+#   2  the check could not run (missing config, unreadable source)
+#
+# No engine logic lives here. If the Action and the CLI ever disagree, the CLI
+# is right.
+
+name: 'Design CI'
+description: 'Fail pull requests on design-system drift between Figma and production design tokens.'
+author: 'Design CI'
+branding:
+  icon: 'eye'
+  color: 'orange'
+
+inputs:
+  version:
+    description: >-
+      designci CLI version to run. Pin an exact version for reproducible
+      checks; "latest" is the default so a bare setup works.
+    required: false
+    default: 'latest'
+  working-directory:
+    description: 'Directory containing designci.config.json, relative to the repo root.'
+    required: false
+    default: '.'
+  annotations:
+    description: 'Emit inline PR annotations for violations ("true" or "false").'
+    required: false
+    default: 'true'
+  node-version:
+    description: 'Node.js version to set up (designci requires 22 or newer).'
+    required: false
+    default: '22'
+
+outputs:
+  health:
+    description: 'Overall design health score, 0-100.'
+    value: ${{ steps.check.outputs.health }}
+  violations:
+    description: 'Count of unaccepted violations (these decide the exit code).'
+    value: ${{ steps.check.outputs.violations }}
+  baselined:
+    description: 'Count of violations suppressed by the baseline.'
+    value: ${{ steps.check.outputs.baselined }}
+  exit-code:
+    description: 'The raw CLI exit code (0, 1 or 2).'
+    value: ${{ steps.check.outputs.exit-code }}
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - id: check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        DESIGNCI_VERSION: ${{ inputs.version }}
+        DESIGNCI_ANNOTATIONS: ${{ inputs.annotations }}
+        DESIGNCI_WORKDIR: ${{ inputs.working-directory }}
+        DESIGNCI_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set +e
+        npx --yes "designci@${DESIGNCI_VERSION}" check --json > designci-result.json
+        code=$?
+        set -e
+        echo "exit-code=${code}" >> "$GITHUB_OUTPUT"
+        if [ -s designci-result.json ]; then
+          node "${DESIGNCI_ACTION_PATH}/annotate.mjs" designci-result.json \
+            "$DESIGNCI_ANNOTATIONS" "$DESIGNCI_WORKDIR"
+        fi
+        exit "${code}"
