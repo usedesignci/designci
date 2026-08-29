@@ -74,8 +74,9 @@ M5 Figma plugin (lint + snapshot export) — done; Community publish is a human
    step (Figma assigns the plugin id then)
 M6 GitHub Action — built in action/ (staging tree for usedesignci/designci-action);
    repo split + Marketplace publish are human steps, see RELEASING.md
-M7 Rails control plane — next
-M8 release pipeline + demo kit — not started
+M7 Rails control plane — done (usedesignci/cloud): ingest API + dashboard;
+   billing, GitHub App and Figma OAuth deliberately deferred
+M8 release pipeline + demo kit — next
 
 All packages stay private: true until the human-run first publish (RELEASING.md)
 — an accidental `pnpm publish -r` burns a name permanently. The CLI package is
