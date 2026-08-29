@@ -10,7 +10,7 @@
 # No engine logic lives here. If the Action and the CLI ever disagree, the CLI
 # is right.
 
-name: 'Design CI'
+name: 'Design CI Check'
 description: 'Fail pull requests on design-system drift between Figma and production design tokens.'
 author: 'Design CI'
 branding:
