@@ -48,6 +48,25 @@ Core validates that document but never reads it off disk — `parseConfig` and
 `parseBaseline` take an already-decoded value. The CLI does the file I/O; the
 Figma plugin has no filesystem and parses the same formats from plugin storage.
 
+### Real sources, read as they are written
+
+Three adapters turn source formats into snapshots:
+
+- **Tokens JSON** — the W3C Design Tokens format, with `$type` inherited from
+  groups, plus the unprefixed `value`/`type` spelling Style Dictionary and Tokens
+  Studio still emit.
+- **CSS** — custom properties, found wherever they are declared. Declarations
+  inside `@media`, `@supports` or `@container` are reported and skipped: a
+  dark-theme override is a different *mode* of a token, not its default, and
+  comparing it against a light design variable would manufacture drift.
+- **Tailwind** — a resolved theme object (`resolveConfig(config).theme`), with
+  each scale typed from Tailwind's own schema. `fontSize: ['1rem', '1.5rem']` is
+  read as a type ramp, not a length.
+
+A format that declares types is believed. Where none is declared, the type comes
+from the value's syntax: `--radius-lg: 8px` is a length because `8px` parses as
+one, not because of what the property is called.
+
 ### Values are compared, never strings
 
 `#FF6B00` and `rgb(255 107 0)` are one colour. `1rem` and `16px` are one length.

@@ -46,16 +46,26 @@ These are not preferences. Breaking one silently is worse than not shipping the 
     CheckResult and still count in healthScore(). If suppressing raised the
     score, the drift trend would measure how much teams baseline rather than how
     healthy their system is.
-12. Core never touches the filesystem. parseConfig and parseBaseline validate an
-    already-decoded value; the CLI reads files, and the Figma plugin — which has
-    no filesystem at all — parses the same formats from its own storage.
+12. Core never touches the filesystem. parseConfig, parseBaseline and every
+    adapter take an already-decoded value or raw text; the CLI reads files, and
+    the Figma plugin — which has no filesystem at all — parses the same formats
+    from its own storage. parseTailwindTheme takes a resolved theme object, never
+    a config path: resolving one means running a bundler over user code.
+13. Types come from the value, never the name. A format that declares a type is
+    authoritative; where none is declared, inferValue reads the value's syntax.
+    `--color-x: 4px` is a dimension. Typing by name is the first step toward the
+    name-based matching invariant 4 forbids.
+14. Conditional CSS is not a default. Declarations inside @media, @supports or
+    @container are reported and skipped — a dark-theme override is a different
+    mode of a token, and comparing it against a design source's default would
+    manufacture drift.
 
 ## Status
 M1 core domain + rule runner — done
 M2a value normalization — done
 M2b config, mappings, baseline — done
-M3 adapters (tokens JSON, CSS, Tailwind) — next
-M4 CLI + first npm publish + repo goes public — not started
+M3 adapters (tokens JSON, CSS, Tailwind) — done
+M4 CLI + first npm publish + repo goes public — next
 M5 Figma plugin (lint + snapshot export) — not started
 M6 GitHub Action — not started
 M7 Rails control plane — not started
@@ -67,12 +77,19 @@ implemented — an accidental `pnpm publish -r` burns a name permanently.
 ## Layout
 packages/core/src/
   domain/      token, snapshot, source, rule, violation, result
-  normalize/   color, dimension, composite (typography+shadow), equal, types
+  normalize/   color, dimension, composite (typography+shadow), equal, value, types
   config/      parse (pure validation of a decoded config document)
+  adapters/    tokens-json (W3C + Style Dictionary), css, tailwind
   baseline/    fingerprint (drift identity), apply, parse
   runner/      run (the rule runner), order (total ordering), context
   rules/       one rule per file
   fixtures/    small-system: 25 tokens, Figma + CSS variants, 3 seeded drifts
 
-fixtures/small-system.ts is the shared test corpus. Every downstream milestone
-tests against it rather than inventing new data.
+fixtures/small-system.ts is the shared test corpus, with small-system-css.ts
+holding the same system as real stylesheet text. Every downstream milestone tests
+against these rather than inventing new data.
+
+Adapters live in core rather than in separate packages: they are pure and
+dependency-free, so isolating them buys nothing while cross-package version skew
+against the domain types would be a real hazard. Split them out if one ever needs
+a dependency of its own.

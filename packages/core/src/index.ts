@@ -9,6 +9,7 @@
 export * from './domain/index.js'
 export * from './config/index.js'
 export * from './baseline/index.js'
+export * from './adapters/index.js'
 export * from './normalize/index.js'
 export * from './runner/index.js'
 export * from './rules/index.js'
