@@ -12,17 +12,20 @@ Deterministic rules, no AI in the check path.
 
 ## Status
 
-Pre-release, and not yet published to npm. The engine (`@designci/core`), the
-CLI (`designci`) and the Figma plugin are built; the GitHub Action and dashboard
-land in later milestones — see the Status section of [CLAUDE.md](./CLAUDE.md).
+Pre-release: everything below is built and tested; the first npm publish is
+imminent (see [RELEASING.md](./RELEASING.md)).
+
+| Piece | Where |
+| --- | --- |
+| Engine (`@designci/core`) | [`packages/core`](./packages/core) — domain, normalization, rules, runner, adapters |
+| CLI (`designci`) | [`packages/cli`](./packages/cli) — `npx designci check`, exit codes 0/1/2 |
+| Figma plugin | [`packages/figma-plugin`](./packages/figma-plugin) — Design Check + snapshot export |
+| GitHub Action | [`usedesignci/designci-action`](https://github.com/usedesignci/designci-action) — PR annotations (source of truth in [`action/`](./action)) |
+| Demo | [`usedesignci/demo`](https://github.com/usedesignci/demo) — a seeded-drift app to try the whole loop |
 
 The [Figma plugin](./packages/figma-plugin) exports the `figma.snapshot.json`
 that the CLI's `figma` source reads, and runs the same engine inside Figma for
 single-file checks — duplicate values, dangling aliases, unsupported paints.
-
-The [GitHub Action](./action) (staging tree for `usedesignci/designci-action`)
-wraps the CLI for pull requests: inline annotations at the drifted line, a job
-summary with the health score, and the CLI's exit code as the job result.
 
 ## Quick start
 

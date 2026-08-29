@@ -14,7 +14,8 @@ Node 22, pnpm 9. Always run `pnpm typecheck && pnpm test` before committing.
 - usedesignci/designci — this repo. Engine, adapters, CLI, Figma plugin. Apache-2.0, public at M4.
 - usedesignci/designci-action — GitHub Action. Separate repo; Marketplace requires it. Thin wrapper over the published CLI.
 - usedesignci/cloud — Rails control plane. Private, permanently.
-- usedesignci/demo — Demo kit: seeded-drift Tailwind app + starter Figma file.
+- usedesignci/demo — Demo kit (Beacon): seeded-drift app + plugin-exported
+  snapshot; README walkthrough verified against the real CLI.
 
 ## Invariants
 These are not preferences. Breaking one silently is worse than not shipping the feature.
@@ -77,7 +78,9 @@ M6 GitHub Action — done; action/ is the source of truth, copied verbatim to
    npm publish, see RELEASING.md
 M7 Rails control plane — done (usedesignci/cloud): ingest API + dashboard;
    billing, GitHub App and Figma OAuth deliberately deferred
-M8 release pipeline + demo kit — next
+M8 release pipeline + demo kit — done: pnpm release (scripts/release.mjs) and
+   usedesignci/demo (Beacon, 3 seeded drifts, verified against the real CLI).
+   Publishing the Beacon starter file to Figma Community is a human step
 
 All packages stay private: true until the human-run first publish (RELEASING.md)
 — an accidental `pnpm publish -r` burns a name permanently. The CLI package is
