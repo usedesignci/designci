@@ -4,4 +4,4 @@
  * repo, and a version constant cannot fail to resolve. The release script
  * updates this alongside package.json.
  */
-export const version = '0.0.0'
+export const version = '0.1.0'
