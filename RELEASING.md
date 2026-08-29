@@ -13,28 +13,34 @@ Both are `private: true` in the repo. That flag is the only thing standing
 between `pnpm publish -r` and an accidental publish, so it stays until the
 moment of release.
 
-## First release checklist
+## Releasing (repeatable)
 
-1. **npm org**: create the `designci` org on npm (owns the `@designci` scope)
-   and enable 2FA for publishes.
-2. **Verify the tree**: `pnpm install && pnpm typecheck && pnpm test` — green.
-3. **Set the version** in `packages/core/package.json`,
-   `packages/cli/package.json`, and `packages/cli/src/version.ts` (all three;
-   the CLI reports the constant). First release: `0.1.0`.
-4. **Flip `private`**: remove `"private": true` from both packages. Do not
-   remove it from the workspace root.
-5. **Build clean**: `pnpm clean && pnpm build`.
-6. **Dry-run**: `pnpm --filter @designci/core publish --dry-run` and the same
-   for `designci`. Check the file list — `dist/`, `package.json`, `README.md`,
-   `LICENSE` only.
-7. **Publish core first**, then the CLI (it depends on core):
-   `pnpm --filter @designci/core publish --access public`
-   `pnpm --filter designci publish --access public`
-   pnpm rewrites `workspace:*` to the real version at pack time.
-8. **Tag**: `git tag v0.1.0 && git push origin v0.1.0`.
-9. **Smoke-test from the registry**: in an empty directory,
-   `npx designci@latest init && npx designci check` (expect exit 2 with
-   guidance, since the starter sources do not exist).
+One script runs the whole checklist in order and stops before anything
+irreversible:
+
+```bash
+pnpm release 0.1.0             # rehearsal: bump, validate, build, dry-run pack
+pnpm release 0.1.0 --publish   # publish core then CLI, commit, tag, push
+```
+
+The rehearsal touches nothing outside the working tree and restores it when
+done; inspect the dry-run file lists it prints (expect dist/, package.json,
+README.md, LICENSE only). --publish will prompt for your npm 2FA code.
+
+Still human, by design:
+
+1. **Once, before the first release**: create the `designci` org on npm (owns
+   the `@designci` scope), enable 2FA, and `npm login`.
+2. **Once, after the first release**: flip this repo public (checklist below)
+   and split the Action repo (see "Publishing the GitHub Action").
+3. Smoke-test each release from the registry:
+   `npx designci@<version> --version` in an empty directory.
+
+The script bumps `packages/core/package.json`, `packages/cli/package.json`
+and `packages/cli/src/version.ts` together, removes `private: true` at
+release time (idempotent afterwards), validates (typecheck, both test
+suites, plugin build), verifies the built CLI reports the new version, and
+publishes core before the CLI, which depends on it.
 
 ## Before the repo goes public (same milestone)
 
