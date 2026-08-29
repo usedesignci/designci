@@ -8,6 +8,7 @@
  */
 
 import type { RuleId, SourceId, TokenId } from './ids.js'
+import type { SourceKind, SourceRole } from './source.js'
 import type { Severity } from './violation.js'
 
 /**
@@ -26,7 +27,24 @@ export interface RuleConfig {
   readonly options?: Readonly<Record<string, unknown>>
 }
 
+/**
+ * A declared source: where one snapshot comes from. This is declaration, not
+ * I/O — the CLI reads `path` off disk, the plugin reads its own storage, and
+ * core only ever sees the resulting decoded value (invariant 12).
+ */
+export interface SourceConfig {
+  readonly id: SourceId
+  readonly kind: SourceKind
+  readonly role: SourceRole
+  readonly label: string
+  /** File to read, for surfaces that have a filesystem. Repo-relative. */
+  readonly path?: string
+}
+
 export interface CheckConfig {
+  /** Project display name, used in report headers. */
+  readonly name?: string
+  readonly sources: readonly SourceConfig[]
   /** Severity per rule. A rule absent from this map uses its default severity. */
   readonly rules: Readonly<Record<string, RuleConfig>>
   readonly mappings: readonly TokenMapping[]
@@ -34,7 +52,7 @@ export interface CheckConfig {
   readonly rootFontSizePx?: number
 }
 
-export const emptyConfig: CheckConfig = { rules: {}, mappings: [] }
+export const emptyConfig: CheckConfig = { sources: [], rules: {}, mappings: [] }
 
 export function ruleConfigFor(config: CheckConfig, id: RuleId): RuleConfig | undefined {
   return Object.hasOwn(config.rules, id) ? config.rules[id] : undefined

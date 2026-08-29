@@ -1,0 +1,36 @@
+{
+  "name": "designci",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CI for your design system. Catch design drift between Figma and production before it ships.",
+  "keywords": ["design-system", "design-tokens", "figma", "lint", "ci", "drift"],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/usedesignci/designci.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/usedesignci/designci#readme",
+  "type": "module",
+  "bin": {
+    "designci": "./dist/main.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@designci/core": "workspace:*"
+  }
+}

@@ -262,7 +262,20 @@ export const mappings: readonly TokenMapping[] = figmaSpecs
   }))
 
 /** Default policy for the corpus: every shipped rule at its default severity. */
-export const config: CheckConfig = { rules: {}, mappings }
+export const config: CheckConfig = {
+  sources: [
+    { id: FIGMA_SOURCE_ID, kind: 'figma', role: 'design', label: 'Figma' },
+    {
+      id: CSS_SOURCE_ID,
+      kind: 'css',
+      role: 'code',
+      label: 'tokens.css',
+      path: 'src/styles/tokens.css',
+    },
+  ],
+  rules: {},
+  mappings,
+}
 
 /**
  * The same mappings in the form a team actually commits, before `parseConfig`

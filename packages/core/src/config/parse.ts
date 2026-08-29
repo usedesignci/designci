@@ -13,7 +13,7 @@
  * than telling the author about it.
  */
 
-import type { CheckConfig, RuleConfig, TokenMapping } from '../domain/config.js'
+import type { CheckConfig, RuleConfig, SourceConfig, TokenMapping } from '../domain/config.js'
 import {
   type ParseDiagnostic,
   type ParseResult,
@@ -21,11 +21,28 @@ import {
   parseOk,
 } from '../domain/diagnostic.js'
 import { sourceId as asSourceId, tokenId as asTokenId } from '../domain/ids.js'
+import type { SourceKind, SourceRole } from '../domain/source.js'
 import type { Severity } from '../domain/violation.js'
 
 const SEVERITIES: ReadonlySet<string> = new Set<Severity>(['off', 'info', 'warn', 'error'])
 
-const TOP_LEVEL_KEYS: ReadonlySet<string> = new Set(['rules', 'mappings', 'rootFontSizePx'])
+const TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
+  'name',
+  'sources',
+  'rules',
+  'mappings',
+  'rootFontSizePx',
+])
+
+const SOURCE_KINDS: ReadonlySet<string> = new Set<SourceKind>([
+  'figma',
+  'tokens-json',
+  'css',
+  'tailwind',
+  'code',
+])
+
+const SOURCE_ROLES: ReadonlySet<string> = new Set<SourceRole>(['design', 'code'])
 
 export interface ParseConfigOptions {
   /**
@@ -183,6 +200,87 @@ function parseMappings(input: unknown, diagnostics: ParseDiagnostic[]): TokenMap
   return mappings
 }
 
+/**
+ * Parses source declarations. `kind` is required; `id` defaults to the kind,
+ * `role` defaults to design for Figma and code for everything else, and `label`
+ * defaults to the path or the id — declarations stay short in the common case
+ * while every field is still explicit in the parsed result.
+ */
+function parseSources(input: unknown, diagnostics: ParseDiagnostic[]): SourceConfig[] {
+  const sources: SourceConfig[] = []
+  if (input === undefined) return sources
+
+  if (!Array.isArray(input)) {
+    diagnostics.push(error('sources must be an array', 'sources', input))
+    return sources
+  }
+
+  const seen = new Set<string>()
+
+  for (const [index, entry] of input.entries()) {
+    const path = `sources[${index}]`
+
+    if (!isPlainObject(entry)) {
+      diagnostics.push(error('a source must be an object', path, entry))
+      continue
+    }
+
+    const kind = entry['kind']
+    if (typeof kind !== 'string' || !SOURCE_KINDS.has(kind)) {
+      diagnostics.push(
+        error(
+          `a source requires a kind of ${[...SOURCE_KINDS].join(', ')}`,
+          `${path}.kind`,
+          kind,
+        ),
+      )
+      continue
+    }
+
+    const rawId = entry['id']
+    if (rawId !== undefined && (typeof rawId !== 'string' || rawId.length === 0)) {
+      diagnostics.push(error('a source id must be a non-empty string', `${path}.id`, rawId))
+      continue
+    }
+    const id = rawId ?? kind
+
+    if (seen.has(id)) {
+      diagnostics.push(error(`duplicate source id ${JSON.stringify(id)}`, `${path}.id`, id))
+      continue
+    }
+    seen.add(id)
+
+    const rawRole = entry['role']
+    if (rawRole !== undefined && (typeof rawRole !== 'string' || !SOURCE_ROLES.has(rawRole))) {
+      diagnostics.push(error('a source role must be design or code', `${path}.role`, rawRole))
+      continue
+    }
+    const role = (rawRole ?? (kind === 'figma' ? 'design' : 'code')) as SourceRole
+
+    const rawPath = entry['path']
+    if (rawPath !== undefined && (typeof rawPath !== 'string' || rawPath.length === 0)) {
+      diagnostics.push(error('a source path must be a non-empty string', `${path}.path`, rawPath))
+      continue
+    }
+
+    const rawLabel = entry['label']
+    if (rawLabel !== undefined && typeof rawLabel !== 'string') {
+      diagnostics.push(error('a source label must be a string', `${path}.label`, rawLabel))
+      continue
+    }
+
+    sources.push({
+      id: asSourceId(id),
+      kind: kind as SourceKind,
+      role,
+      label: rawLabel ?? rawPath ?? id,
+      ...(rawPath === undefined ? {} : { path: rawPath }),
+    })
+  }
+
+  return sources
+}
+
 function parseRootFontSize(input: unknown, diagnostics: ParseDiagnostic[]): number | undefined {
   if (input === undefined) return undefined
   if (typeof input !== 'number' || !Number.isFinite(input) || input <= 0) {
@@ -216,16 +314,48 @@ export function parseConfig(
     }
   }
 
+  const rawName = input['name']
+  if (rawName !== undefined && typeof rawName !== 'string') {
+    diagnostics.push(error('name must be a string', 'name', rawName))
+  }
+
+  const sources = parseSources(input['sources'], diagnostics)
   const rules = parseRules(input['rules'], diagnostics, options)
   const mappings = parseMappings(input['mappings'], diagnostics)
   const rootFontSizePx = parseRootFontSize(input['rootFontSizePx'], diagnostics)
+
+  // When sources are declared, a mapping naming an undeclared source is almost
+  // certainly a typo, and a typo here silently disables the comparison it was
+  // meant to state. A warning, not an error: mappings may legitimately name a
+  // source another surface supplies.
+  if (sources.length > 0) {
+    const declared = new Set<string>(sources.map((source) => source.id))
+    for (const [index, mapping] of mappings.entries()) {
+      for (const side of [mapping.from.sourceId, mapping.to.sourceId]) {
+        if (!declared.has(side)) {
+          diagnostics.push(
+            warning(
+              'unknown-mapping-source',
+              `mapping names source ${JSON.stringify(side)}, which is not declared in sources`,
+              `mappings[${index}]`,
+            ),
+          )
+        }
+      }
+    }
+  }
 
   if (diagnostics.some((diagnostic) => diagnostic.severity === 'error')) {
     return parseFailed(diagnostics)
   }
 
-  const config: CheckConfig =
-    rootFontSizePx === undefined ? { rules, mappings } : { rules, mappings, rootFontSizePx }
+  const config: CheckConfig = {
+    ...(typeof rawName === 'string' ? { name: rawName } : {}),
+    sources,
+    rules,
+    mappings,
+    ...(rootFontSizePx === undefined ? {} : { rootFontSizePx }),
+  }
 
   return parseOk(config, diagnostics)
 }

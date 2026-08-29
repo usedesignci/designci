@@ -12,10 +12,37 @@ Deterministic rules, no AI in the check path.
 
 ## Status
 
-Pre-release, and not yet published to npm. `@designci/core` carries the engine:
-the domain model, value normalization, and the rule runner. Adapters, the CLI,
-the Figma plugin and the GitHub Action land in later milestones — see the Status
-section of [CLAUDE.md](./CLAUDE.md) for where each one stands.
+Pre-release, and not yet published to npm. The engine (`@designci/core`) and the
+CLI (`designci`) are built; the Figma plugin, GitHub Action and dashboard land in
+later milestones — see the Status section of [CLAUDE.md](./CLAUDE.md).
+
+## Quick start
+
+```bash
+npx designci init    # writes designci.config.json
+npx designci check   # compares your sources, exits 1 on drift
+```
+
+```
+Design CI — Acme
+
+  ✓ 48 of 50 tokens clean
+
+  ✕ radius.lg  src/styles/tokens.css:32
+    radius.lg is 6px in src/styles/tokens.css but 8px in Figma
+      wrote:    6px
+      expected: 8px
+      fix: Set radius.lg to 8px
+
+  Design health: 95%
+
+  1 error, 5 warnings, 0 info
+```
+
+Sources are declared in config: a Figma snapshot (exported by the Design CI
+plugin), a tokens JSON file, a stylesheet, or a resolved Tailwind theme. Already
+drifted? `designci check --update-baseline` accepts the current state; CI then
+fails only on drift introduced after it.
 
 ## What the engine does today
 

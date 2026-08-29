@@ -65,21 +65,31 @@ M1 core domain + rule runner — done
 M2a value normalization — done
 M2b config, mappings, baseline — done
 M3 adapters (tokens JSON, CSS, Tailwind) — done
-M4 CLI + first npm publish + repo goes public — next
-M5 Figma plugin (lint + snapshot export) — not started
+M4 CLI + first npm publish + repo goes public — built; publish + public flip are
+   human steps, see RELEASING.md
+M5 Figma plugin (lint + snapshot export) — next
 M6 GitHub Action — not started
 M7 Rails control plane — not started
 M8 release pipeline + demo kit — not started
 
-Packages other than core are stubs marked private: true. Keep them private until
-implemented — an accidental `pnpm publish -r` burns a name permanently.
+All packages stay private: true until the human-run first publish (RELEASING.md)
+— an accidental `pnpm publish -r` burns a name permanently. The CLI package is
+named `designci` (unscoped, so `npx designci check` works); the engine is
+@designci/core.
+
+CLI exit codes are a contract the GitHub Action builds on: 0 clean, 1 unaccepted
+error-severity drift, 2 could not run. A source that fails to load is a 2, never
+a green check that silently compared less than it was asked to.
 
 ## Layout
+packages/cli/src/
+  main.ts      the designci executable; commands/ init + check; output/ render
+  project.ts   the CLI's only I/O: read config, baseline and sources off disk
 packages/core/src/
   domain/      token, snapshot, source, rule, violation, result
   normalize/   color, dimension, composite (typography+shadow), equal, value, types
   config/      parse (pure validation of a decoded config document)
-  adapters/    tokens-json (W3C + Style Dictionary), css, tailwind
+  adapters/    tokens-json (W3C + Style Dictionary), css, tailwind, snapshot
   baseline/    fingerprint (drift identity), apply, parse
   runner/      run (the rule runner), order (total ordering), context
   rules/       one rule per file

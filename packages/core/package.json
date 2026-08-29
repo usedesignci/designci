@@ -13,6 +13,28 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
-  "sideEffects": false
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "keywords": [
+    "design-system",
+    "design-tokens",
+    "figma",
+    "lint",
+    "ci",
+    "drift"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/usedesignci/designci.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/usedesignci/designci#readme",
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

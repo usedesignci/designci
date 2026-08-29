@@ -13,7 +13,47 @@ function expectOk(input: unknown, options?: Parameters<typeof parseConfig>[1]) {
 describe('parseConfig', () => {
   it('reads an empty config', () => {
     const { value } = expectOk({})
-    expect(value).toEqual({ rules: {}, mappings: [] })
+    expect(value).toEqual({ sources: [], rules: {}, mappings: [] })
+  })
+
+  it('parses source declarations, defaulting id, role and label', () => {
+    const { value } = expectOk({
+      sources: [
+        { kind: 'figma', path: 'design/figma.snapshot.json' },
+        { kind: 'css', path: 'src/tokens.css' },
+        { id: 'theme', kind: 'tokens-json', role: 'design', label: 'Theme', path: 't.json' },
+      ],
+    })
+    expect(value.sources).toEqual([
+      {
+        id: 'figma',
+        kind: 'figma',
+        role: 'design',
+        label: 'design/figma.snapshot.json',
+        path: 'design/figma.snapshot.json',
+      },
+      { id: 'css', kind: 'css', role: 'code', label: 'src/tokens.css', path: 'src/tokens.css' },
+      { id: 'theme', kind: 'tokens-json', role: 'design', label: 'Theme', path: 't.json' },
+    ])
+  })
+
+  it('rejects a duplicate source id and an unknown kind', () => {
+    expect(parseConfig({ sources: [{ kind: 'css' }, { kind: 'css' }] }).ok).toBe(false)
+    expect(parseConfig({ sources: [{ kind: 'sketch' }] }).ok).toBe(false)
+  })
+
+  it('warns when a mapping names an undeclared source', () => {
+    // Almost certainly a typo, and a typo here silently disables a comparison.
+    const result = expectOk({
+      sources: [{ kind: 'figma' }, { kind: 'css' }],
+      mappings: [{ figma: 'radius.lg', csss: '--radius-lg' }],
+    })
+    expect(result.diagnostics.map((d) => d.code)).toEqual(['unknown-mapping-source'])
+  })
+
+  it('reads a project name and rejects a non-string one', () => {
+    expect(expectOk({ name: 'Acme' }).value.name).toBe('Acme')
+    expect(parseConfig({ name: 42 }).ok).toBe(false)
   })
 
   it('accepts both the shorthand and object rule forms', () => {
