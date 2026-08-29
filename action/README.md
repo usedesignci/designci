@@ -23,7 +23,8 @@ jobs:
 
 The repo needs a `designci.config.json` (run `npx designci init` once) and the
 committed sources it names — a `figma.snapshot.json` exported by the Design CI
-Figma plugin, tokens JSON, stylesheets.
+Figma plugin, tokens JSON, stylesheets. To see the whole loop working, clone
+[usedesignci/demo](https://github.com/usedesignci/demo).
 
 ## Inputs
 
