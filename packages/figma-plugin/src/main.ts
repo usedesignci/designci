@@ -1,11 +1,12 @@
 /**
  * Plugin entry (main thread).
  *
- * The check config lives in the document's plugin data, so it travels with the
- * file and the whole team shares one policy — the same JSON the repo's
- * designci.config.json holds, parsed by the same core parser (invariant 12).
- * No network access is declared in the manifest: no AI, no telemetry, every
- * check runs locally (invariant 2).
+ * A thin message router: reads come from collect.ts, judgments from the pure
+ * modules, and the UI gets typed MainMessages back. The check config and the
+ * canvas ignore list live in the document's plugin data, so the whole team
+ * shares one policy and one accepted-set per file. No network access is
+ * declared in the manifest: no AI, no telemetry, every check runs locally
+ * (invariant 2).
  */
 
 import {
@@ -13,19 +14,21 @@ import {
   parseConfig,
   runCheck,
   type CheckConfig,
-  type CheckResult,
   emptyConfig,
 } from '@designci/core'
 
-import { collectDocument } from './collect.js'
+import { collectCanvas, collectComponents, collectDocument } from './collect.js'
 import { extractSnapshot } from './extract.js'
+import { parseIgnores } from './ignores.js'
+import { CANVAS_RULE_IDS, lintCanvas, tokenBreakdown } from './lint.js'
+import type { MainMessage, ScanPayload, UiMessage } from './messages.js'
 
 const CONFIG_KEY = 'designci.config'
+const IGNORES_KEY = 'designci.canvasIgnores'
 
-interface UiMessage {
-  readonly type: 'check' | 'export' | 'save-config' | 'load-config'
-  readonly json?: string
-}
+const KNOWN_RULE_IDS = [...allRules.map((rule) => rule.id as string), ...CANVAS_RULE_IDS]
+
+const post = (message: MainMessage): void => figma.ui.postMessage(message)
 
 function loadConfig(): { config: CheckConfig; error?: string; json: string } {
   const stored = figma.root.getPluginData(CONFIG_KEY)
@@ -38,7 +41,7 @@ function loadConfig(): { config: CheckConfig; error?: string; json: string } {
     return { config: emptyConfig, json: stored, error: 'stored config is not valid JSON' }
   }
 
-  const parsed = parseConfig(decoded, { knownRuleIds: allRules.map((rule) => rule.id) })
+  const parsed = parseConfig(decoded, { knownRuleIds: KNOWN_RULE_IDS })
   if (!parsed.ok) {
     return {
       config: emptyConfig,
@@ -49,19 +52,39 @@ function loadConfig(): { config: CheckConfig; error?: string; json: string } {
   return { config: parsed.value, json: stored }
 }
 
-async function runDesignCheck(): Promise<{ result: CheckResult; tokenCount: number }> {
+function loadIgnores(): string[] {
+  return parseIgnores(figma.root.getPluginData(IGNORES_KEY))
+}
+
+function saveIgnores(ignores: readonly string[]): void {
+  figma.root.setPluginData(IGNORES_KEY, JSON.stringify(ignores))
+}
+
+async function scan(): Promise<ScanPayload> {
   const document = await collectDocument()
   const snapshot = extractSnapshot(document)
   const { config } = loadConfig()
-  // One source only: cross-source rules (mismatch, missing) stand down by
-  // construction, and single-source rules (duplicates) plus the extraction
-  // diagnostics do the linting. The full comparison runs in CI, where the code
-  // sources are.
+  const ignores = loadIgnores()
+
+  // Token rules run through the engine; cross-source rules stand down with one
+  // source, by construction. Canvas lint runs alongside — its findings never
+  // enter healthScore() (invariant 6).
   const result = runCheck({ snapshots: [snapshot], rules: allRules, config })
-  return { result, tokenCount: snapshot.tokens.length }
+  const canvas = lintCanvas({ canvas: collectCanvas(), snapshot, config, ignores })
+  const inventory = collectComponents()
+
+  return {
+    result,
+    canvas,
+    inventory,
+    tokenCount: snapshot.tokens.length,
+    tokenBreakdown: tokenBreakdown(snapshot),
+    pageName: figma.currentPage.name,
+    ignores,
+  }
 }
 
-figma.showUI(__html__, { width: 420, height: 560, themeColors: true })
+figma.showUI(__html__, { width: 440, height: 620, themeColors: true })
 
 figma.ui.onmessage = async (message: UiMessage) => {
   try {
@@ -76,16 +99,15 @@ figma.ui.onmessage = async (message: UiMessage) => {
 
 async function handle(message: UiMessage): Promise<void> {
   switch (message.type) {
-    case 'check': {
-      const { result, tokenCount } = await runDesignCheck()
-      figma.ui.postMessage({ type: 'result', result, tokenCount })
+    case 'scan': {
+      post({ type: 'scan-result', payload: await scan() })
       return
     }
     case 'export': {
       const document = await collectDocument()
       const snapshot = extractSnapshot(document)
       // Stable filename so the repo path in designci.config.json never churns.
-      figma.ui.postMessage({
+      post({
         type: 'snapshot',
         json: JSON.stringify(snapshot, null, 2),
         fileName: 'figma.snapshot.json',
@@ -94,26 +116,26 @@ async function handle(message: UiMessage): Promise<void> {
       return
     }
     case 'save-config': {
-      const json = message.json ?? ''
+      const json = message.json
       if (json.trim() === '') {
         figma.root.setPluginData(CONFIG_KEY, '')
-        figma.ui.postMessage({ type: 'config', json: '', saved: true })
+        post({ type: 'config', json: '', saved: true })
         return
       }
       let decoded: unknown
       try {
         decoded = JSON.parse(json)
       } catch (cause) {
-        figma.ui.postMessage({
+        post({
           type: 'config',
           json,
           error: `not valid JSON: ${cause instanceof Error ? cause.message : String(cause)}`,
         })
         return
       }
-      const parsed = parseConfig(decoded, { knownRuleIds: allRules.map((rule) => rule.id) })
+      const parsed = parseConfig(decoded, { knownRuleIds: KNOWN_RULE_IDS })
       if (!parsed.ok) {
-        figma.ui.postMessage({
+        post({
           type: 'config',
           json,
           error: parsed.diagnostics.map((diagnostic) => diagnostic.message).join('; '),
@@ -121,12 +143,55 @@ async function handle(message: UiMessage): Promise<void> {
         return
       }
       figma.root.setPluginData(CONFIG_KEY, json)
-      figma.ui.postMessage({ type: 'config', json, saved: true })
+      post({ type: 'config', json, saved: true })
       return
     }
     case 'load-config': {
       const { json, error } = loadConfig()
-      figma.ui.postMessage({ type: 'config', json, ...(error === undefined ? {} : { error }) })
+      post({ type: 'config', json, ...(error === undefined ? {} : { error }) })
+      return
+    }
+    case 'select-nodes': {
+      const nodes = (
+        await Promise.all(message.ids.map((id) => figma.getNodeByIdAsync(id)))
+      ).filter((node): node is SceneNode => node !== null && 'visible' in node)
+      if (nodes.length === 0) {
+        figma.notify('Those layers no longer exist; run the scan again.')
+        return
+      }
+      figma.currentPage.selection = nodes
+      figma.viewport.scrollAndZoomIntoView(nodes)
+      return
+    }
+    case 'add-ignore': {
+      const ignores = loadIgnores()
+      if (!ignores.includes(message.key)) ignores.push(message.key)
+      saveIgnores(ignores)
+      post({ type: 'ignores', ignores })
+      return
+    }
+    case 'remove-ignore': {
+      const ignores = loadIgnores().filter((key) => key !== message.key)
+      saveIgnores(ignores)
+      post({ type: 'ignores', ignores })
+      return
+    }
+    case 'disable-rule': {
+      // "Ignore rule entirely" = severity off in the stored config, the same
+      // policy channel the CLI uses (invariant 5).
+      const { json } = loadConfig()
+      let decoded: Record<string, unknown> = {}
+      try {
+        decoded = json.trim() === '' ? {} : (JSON.parse(json) as Record<string, unknown>)
+      } catch {
+        decoded = {}
+      }
+      const rules = (decoded['rules'] as Record<string, unknown> | undefined) ?? {}
+      rules[message.ruleId] = 'off'
+      decoded['rules'] = rules
+      const next = JSON.stringify(decoded, null, 2)
+      figma.root.setPluginData(CONFIG_KEY, next)
+      post({ type: 'config', json: next, saved: true })
       return
     }
   }

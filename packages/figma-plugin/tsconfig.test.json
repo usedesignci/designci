@@ -3,8 +3,23 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist-tests",
-    "types": ["@figma/plugin-typings", "node"]
+    "types": [
+      "@figma/plugin-typings",
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts"],
-  "references": [{ "path": "./tsconfig.json" }, { "path": "../core" }]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.json"
+    },
+    {
+      "path": "../core"
+    }
+  ],
+  "exclude": [
+    "src/ui"
+  ]
 }

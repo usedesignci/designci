@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist-ui-tsc",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  },
+  "include": ["src/ui/**/*", "src/messages.ts", "src/lint.ts", "src/contrast.ts", "src/ignores.ts", "src/rule-docs.ts"],
+  "references": [{ "path": "../core" }]
+}

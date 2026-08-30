@@ -24,8 +24,10 @@ imminent (see [RELEASING.md](./RELEASING.md)).
 | Demo | [`usedesignci/demo`](https://github.com/usedesignci/demo) — a seeded-drift app to try the whole loop |
 
 The [Figma plugin](./packages/figma-plugin) exports the `figma.snapshot.json`
-that the CLI's `figma` source reads, and runs the same engine inside Figma for
-single-file checks — duplicate values, dangling aliases, unsupported paints.
+that the CLI's `figma` source reads, and runs Design Check inside Figma: canvas
+lint (raw colors with the matching token named, off-scale spacing and radii,
+detached instances, WCAG text contrast — with jump-to-layer and per-file
+ignores) plus the same token engine CI runs.
 
 ## Quick start
 

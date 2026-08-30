@@ -3,9 +3,20 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist-tsc",
-    "types": ["@figma/plugin-typings"]
+    "types": [
+      "@figma/plugin-typings"
+    ]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts"],
-  "references": [{ "path": "../core" }]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/ui"
+  ],
+  "references": [
+    {
+      "path": "../core"
+    }
+  ]
 }

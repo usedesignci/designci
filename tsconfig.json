@@ -18,6 +18,9 @@
     },
     {
       "path": "packages/figma-plugin/tsconfig.test.json"
+    },
+    {
+      "path": "packages/figma-plugin/tsconfig.ui.json"
     }
   ]
 }

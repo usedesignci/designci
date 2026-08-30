@@ -5,3 +5,4 @@ dist/
 coverage/
 dist-tests/
 dist-tsc/
+dist-ui-tsc/

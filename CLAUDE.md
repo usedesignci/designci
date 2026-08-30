@@ -94,8 +94,15 @@ a green check that silently compared less than it was asked to.
 ## Layout
 packages/figma-plugin/src/
   extract.ts   pure: serializable Figma shapes -> DesignSystemSnapshot
+  lint.ts      pure: canvas shapes + snapshot -> canvas findings (raw colors,
+               off-scale spacing/radii, detached instances, WCAG contrast).
+               Judgments are binding state + value equality only; findings
+               never enter healthScore()
+  contrast.ts  pure WCAG math; ignores.ts pure ignore keys; rule-docs.ts prose
   collect.ts   the only module touching the figma global; contains no decisions
-  main.ts      plugin entry; ui.html the plugin UI; build.mjs esbuild bundle
+  main.ts      plugin entry / message router; messages.ts the typed protocol
+  ui/          Preact app (Home/Scan/Settings), bundled inline into dist/ui.html
+               by build.mjs; tsconfig.ui.json is its DOM/JSX project
 action/         staging tree for usedesignci/designci-action: action.yml,
                 annotate.mjs (dependency-free formatter), node:test suite;
                 tests/action-contract.test.mjs runs it against a real engine
