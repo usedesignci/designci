@@ -51,7 +51,10 @@ export const tokenValueMismatch: Rule = {
             expected: token.raw,
             relatedSourceId: snapshot.source.id,
             relatedTokenId: token.id,
-            suggestion: `Set ${tokenName(mapped.token)} to ${token.raw}`,
+            // The canonical form, not `raw`: Figma writes a radius as the bare
+            // number "6", and "Set radius.control to 6" is not a usable fix.
+            // The wrote/expected fields still quote the raws (invariant 8).
+            suggestion: `Set ${tokenName(mapped.token)} to ${formatValue(token.value)}`,
           })
         }
       }

@@ -13,6 +13,7 @@ import type { Rule, RuleContext } from '../domain/rule.js'
 import type { DesignSystemSnapshot } from '../domain/snapshot.js'
 import { tokenName } from '../domain/token.js'
 import type { RuleFinding } from '../domain/violation.js'
+import { formatValue } from '../normalize/index.js'
 
 export const missingToken: Rule = {
   id: ruleId('missing-token'),
@@ -46,7 +47,9 @@ export const missingToken: Rule = {
             expected: token.raw,
             relatedSourceId: snapshot.source.id,
             relatedTokenId: token.id,
-            suggestion: `Define ${tokenName(token)} in ${code.source.label} as ${token.raw}, or map it in your Design CI config`,
+            // Canonical form, not `raw`: a Figma radius raw is the bare "6",
+            // which is no value to paste into a stylesheet.
+            suggestion: `Define ${tokenName(token)} in ${code.source.label} as ${formatValue(token.value)}, or map it in your Design CI config`,
           })
         }
       }
