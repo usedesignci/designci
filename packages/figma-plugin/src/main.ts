@@ -21,7 +21,7 @@ import { collectCanvas, collectComponents, collectDocument } from './collect.js'
 import { extractSnapshot } from './extract.js'
 import { parseIgnores } from './ignores.js'
 import { CANVAS_RULE_IDS, lintCanvas, tokenBreakdown } from './lint.js'
-import type { MainMessage, ScanPayload, UiMessage } from './messages.js'
+import type { MainMessage, ScanPayload, ScanStepId, UiMessage } from './messages.js'
 import {
   buildCommitMessage,
   buildPrBody,
@@ -75,6 +75,8 @@ function saveIgnores(ignores: readonly string[]): void {
 
 /** Lets the UI iframe paint between synchronous stages of a scan. */
 const yieldToUi = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
+
+const postProgress = (step: ScanStepId): void => post({ type: 'scan-progress', step })
 
 function loadSync(): { settings?: SyncSettings; lastPushedHash?: string } {
   const stored = figma.root.getPluginData(SYNC_KEY)
@@ -144,23 +146,27 @@ async function postSyncState(currentHash?: string): Promise<void> {
   })
 }
 
-async function scan(): Promise<ScanPayload> {
+async function scan(silent = false): Promise<ScanPayload> {
   // Each progress step is a real stage, posted as it starts — no theatre.
-  post({ type: 'scan-progress', step: 'document' })
+  // Background refreshes skip the announcements: the user did not ask.
+  const progress = (step: Parameters<typeof postProgress>[0]): void => {
+    if (!silent) postProgress(step)
+  }
+  progress('document')
   const document = await collectDocument()
   const snapshot = extractSnapshot(document)
   const { config } = loadConfig()
   const ignores = loadIgnores()
 
-  post({ type: 'scan-progress', step: 'canvas' })
+  progress('canvas')
   await yieldToUi()
   const collectedCanvas = collectCanvas()
 
-  post({ type: 'scan-progress', step: 'components' })
+  progress('components')
   await yieldToUi()
   const inventory = collectComponents()
 
-  post({ type: 'scan-progress', step: 'checks' })
+  progress('checks')
   await yieldToUi()
   // Token rules run through the engine; cross-source rules stand down with one
   // source, by construction. Canvas lint runs alongside — its findings never
@@ -168,8 +174,11 @@ async function scan(): Promise<ScanPayload> {
   const result = runCheck({ snapshots: [snapshot], rules: allRules, config })
   const canvas = lintCanvas({ canvas: collectedCanvas, snapshot, config, ignores })
 
-  // The scan already extracted the snapshot; refresh the sync state for free.
-  await postSyncState(snapshotHash(snapshot))
+  // The scan already extracted the snapshot; refresh the sync state for free
+  // and remember the document hash so the change poll stays quiet.
+  const documentHash = snapshotHash(snapshot)
+  lastDocumentHash = documentHash
+  await postSyncState(documentHash)
 
   return {
     result,
@@ -182,7 +191,85 @@ async function scan(): Promise<ScanPayload> {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Auto-scan: the plugin notices changes itself.
+ *
+ * Figma's granular events cover canvas edits (`nodechange` on the current
+ * page) and style edits (`stylechange`); variables have no event, so a light
+ * poll hashes the document's tokens and triggers a refresh when they change.
+ * `documentchange` would cover everything but requires loading every page —
+ * too heavy for a panel that is just keeping itself honest. Auto scans are
+ * silent: data updates in place, no progress screen, no closed panels.
+ * ------------------------------------------------------------------ */
+
+let scanBusy = false
+let scanQueued = false
+let autoTimer: ReturnType<typeof setTimeout> | undefined
+let lastDocumentHash: string | undefined
+
+async function runAutoScan(): Promise<void> {
+  if (scanBusy) {
+    scanQueued = true
+    return
+  }
+  scanBusy = true
+  try {
+    const payload = await scan(true)
+    post({ type: 'scan-result', payload, auto: true })
+  } catch {
+    // Background refreshes fail silently; a manual scan surfaces errors.
+  }
+  scanBusy = false
+  if (scanQueued) {
+    scanQueued = false
+    scheduleAutoScan()
+  }
+}
+
+/** Debounced: a burst of edits becomes one scan shortly after it settles. */
+function scheduleAutoScan(delayMs = 900): void {
+  if (autoTimer !== undefined) clearTimeout(autoTimer)
+  autoTimer = setTimeout(() => {
+    autoTimer = undefined
+    void runAutoScan()
+  }, delayMs)
+}
+
+function watchForChanges(): void {
+  let watchedPage = figma.currentPage
+  const onNodeChange = (): void => scheduleAutoScan()
+  watchedPage.on('nodechange', onNodeChange)
+
+  figma.on('currentpagechange', () => {
+    watchedPage.off('nodechange', onNodeChange)
+    watchedPage = figma.currentPage
+    watchedPage.on('nodechange', onNodeChange)
+    // A different page means different canvas findings; rescan promptly.
+    scheduleAutoScan(200)
+  })
+
+  figma.on('stylechange', () => scheduleAutoScan())
+
+  // Variable edits fire no event: compare the token hash every few seconds.
+  setInterval(() => {
+    if (scanBusy || autoTimer !== undefined) return
+    void (async () => {
+      try {
+        const document = await collectDocument()
+        const hash = snapshotHash(extractSnapshot(document))
+        if (lastDocumentHash !== undefined && hash !== lastDocumentHash) scheduleAutoScan(0)
+        lastDocumentHash = hash
+      } catch {
+        // Best-effort; the next tick tries again.
+      }
+    })()
+  }, 4000)
+}
+
 figma.showUI(__html__, { width: 440, height: 620, themeColors: true })
+watchForChanges()
+// First scan on open — the panel arrives already knowing the file's state.
+scheduleAutoScan(100)
 
 figma.ui.onmessage = async (message: UiMessage) => {
   try {
@@ -198,7 +285,12 @@ figma.ui.onmessage = async (message: UiMessage) => {
 async function handle(message: UiMessage): Promise<void> {
   switch (message.type) {
     case 'scan': {
-      post({ type: 'scan-result', payload: await scan() })
+      scanBusy = true
+      try {
+        post({ type: 'scan-result', payload: await scan() })
+      } finally {
+        scanBusy = false
+      }
       return
     }
     case 'export': {
@@ -308,12 +400,14 @@ async function handle(message: UiMessage): Promise<void> {
       if (!ignores.includes(message.key)) ignores.push(message.key)
       saveIgnores(ignores)
       post({ type: 'ignores', ignores })
+      scheduleAutoScan(0)
       return
     }
     case 'remove-ignore': {
       const ignores = loadIgnores().filter((key) => key !== message.key)
       saveIgnores(ignores)
       post({ type: 'ignores', ignores })
+      scheduleAutoScan(0)
       return
     }
     case 'disable-rule': {

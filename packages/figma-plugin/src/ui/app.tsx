@@ -57,9 +57,13 @@ export function App() {
           break
         case 'scan-result':
           setScan(message.payload)
-          setScanning(false)
-          setStep(null)
-          setDetail(null)
+          if (message.auto !== true) {
+            // A scan the user asked for: dismiss the progress screen and any
+            // open detail. Background refreshes update data in place only.
+            setScanning(false)
+            setStep(null)
+            setDetail(null)
+          }
           break
         case 'snapshot':
           setExporting(false)
@@ -74,10 +78,9 @@ export function App() {
           })
           break
         case 'ignores':
-          // Ignores changed; re-scan so counts and lists stay truthful.
-          setScanning(true)
-          setStep(null)
-          send({ type: 'scan' })
+          // Main schedules a silent re-scan itself; just leave the detail the
+          // ignore was taken from — its finding is about to move aside.
+          setDetail(null)
           break
         case 'sync-state':
           setSync(message.state)

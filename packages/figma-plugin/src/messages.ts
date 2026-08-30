@@ -86,7 +86,9 @@ export interface SyncState {
 
 export type MainMessage =
   | { readonly type: 'scan-progress'; readonly step: ScanStepId }
-  | { readonly type: 'scan-result'; readonly payload: ScanPayload }
+  /** `auto` marks a background refresh: the UI updates data in place without
+   * the progress screen and without closing whatever panel is open. */
+  | { readonly type: 'scan-result'; readonly payload: ScanPayload; readonly auto?: boolean }
   | { readonly type: 'sync-state'; readonly state: SyncState }
   /** Reply to push-snapshot: the UI performs the push (network lives in the
    * iframe); the token crosses here at push time only, never stored UI-side. */
