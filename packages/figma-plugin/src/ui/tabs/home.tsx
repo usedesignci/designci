@@ -107,7 +107,19 @@ export function HomeTab(props: HomeProps) {
         </li>
       </ul>
 
-      {props.exportNote !== '' && <p class="ok-text">{props.exportNote}</p>}
+      {props.exportNote !== '' && (
+        <div class="card export-next">
+          <p class="ok-text">
+            <Icon name="check-circle" size={14} /> {props.exportNote}
+          </p>
+          <p>
+            Commit it to your repo — <code>design/figma.snapshot.json</code>, like a lockfile for
+            design decisions. Then run <code>npx designci init</code> there: it finds your token
+            sources and proposes mappings for you to confirm, and{' '}
+            <code>npx designci check</code> catches drift from then on.
+          </p>
+        </div>
+      )}
 
       <p class="footer-note">
         No network access: nothing leaves Figma. The full design↔code comparison runs in CI with

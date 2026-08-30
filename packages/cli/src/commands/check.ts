@@ -15,8 +15,34 @@ import { writeFile } from 'node:fs/promises'
 
 import { allRules, createBaseline, runCheck, shouldFail } from '@designci/core'
 
+import type { DesignSystemSnapshot } from '@designci/core'
+
 import { renderFailure, renderReport } from '../output/render.js'
 import { BASELINE_FILE, loadProject } from '../project.js'
+
+/**
+ * A snapshot is a copy of Figma, and copies go stale. Past this age the human
+ * report carries a nudge to re-export. Presentation only: it never enters the
+ * CheckResult (whose JSON must stay a pure function of the inputs, invariant 1)
+ * and never moves the exit code.
+ */
+const STALE_AFTER_DAYS = 30
+
+function staleness(snapshots: readonly DesignSystemSnapshot[], now: number): string[] {
+  const notes: string[] = []
+  for (const snapshot of snapshots) {
+    if (snapshot.exportedAt === undefined) continue
+    const exported = Date.parse(snapshot.exportedAt)
+    if (Number.isNaN(exported)) continue
+    const days = Math.floor((now - exported) / (24 * 60 * 60 * 1000))
+    if (days > STALE_AFTER_DAYS) {
+      notes.push(
+        `  ⚠ ${snapshot.source.label} was exported ${days} days ago. If design tokens changed since, re-export from the Design CI Figma plugin and commit the new snapshot.`,
+      )
+    }
+  }
+  return notes
+}
 
 export interface CheckOptions {
   readonly root: string
@@ -25,6 +51,8 @@ export interface CheckOptions {
   readonly updateBaseline: boolean
   readonly write: (text: string) => void
   readonly writeError: (text: string) => void
+  /** Injectable clock for tests; defaults to the real one. */
+  readonly now?: () => number
 }
 
 export async function check(options: CheckOptions): Promise<number> {
@@ -74,6 +102,9 @@ export async function check(options: CheckOptions): Promise<number> {
         ...(project.config.name === undefined ? {} : { projectName: project.config.name }),
       }),
     )
+    for (const note of staleness(project.snapshots, (options.now ?? Date.now)())) {
+      options.write(note)
+    }
   }
 
   return shouldFail(result) ? 1 : 0

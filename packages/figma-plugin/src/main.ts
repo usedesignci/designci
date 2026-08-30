@@ -120,10 +120,14 @@ async function handle(message: UiMessage): Promise<void> {
     case 'export': {
       const document = await collectDocument()
       const snapshot = extractSnapshot(document)
+      // The timestamp is stamped here at the boundary, not in extract (which
+      // stays pure): it lets the CLI warn when a committed snapshot has gone
+      // stale. Nothing in the check path reads it.
+      const exported = { ...snapshot, exportedAt: new Date().toISOString() }
       // Stable filename so the repo path in designci.config.json never churns.
       post({
         type: 'snapshot',
-        json: JSON.stringify(snapshot, null, 2),
+        json: JSON.stringify(exported, null, 2),
         fileName: 'figma.snapshot.json',
         tokenCount: snapshot.tokens.length,
       })

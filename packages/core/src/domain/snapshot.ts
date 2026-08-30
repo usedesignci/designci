@@ -20,12 +20,19 @@ export interface DesignSystemSnapshot {
   readonly tokens: readonly DesignToken[]
   /** Parse failures encountered producing this snapshot (invariant 7). */
   readonly diagnostics: readonly ParseDiagnostic[]
+  /**
+   * When the writer produced this snapshot (ISO 8601). Metadata only: no rule
+   * reads it — determinism (invariant 1) means the check path never touches a
+   * clock. The CLI uses it for a staleness note outside the CheckResult.
+   */
+  readonly exportedAt?: string
 }
 
 export interface SnapshotInput {
   readonly source: Source
   readonly tokens: readonly DesignToken[]
   readonly diagnostics?: readonly ParseDiagnostic[]
+  readonly exportedAt?: string
 }
 
 export function createSnapshot(input: SnapshotInput): DesignSystemSnapshot {
@@ -34,5 +41,6 @@ export function createSnapshot(input: SnapshotInput): DesignSystemSnapshot {
     source: input.source,
     tokens: input.tokens,
     diagnostics: input.diagnostics ?? [],
+    ...(input.exportedAt === undefined ? {} : { exportedAt: input.exportedAt }),
   }
 }

@@ -232,6 +232,11 @@ nav.tabs button.active { color: var(--brand); font-weight: 700; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Post-export next steps */
+.export-next { padding: var(--space-3); margin-top: var(--space-4); }
+.export-next p { margin: 0; font-size: 12px; color: var(--text-2); }
+.export-next .ok-text { font-weight: 600; margin-bottom: var(--space-1); font-size: 13px; }
+
 /* Misc */
 .clean { color: var(--ok); font-weight: 600; }
 .error-text { color: var(--danger); }

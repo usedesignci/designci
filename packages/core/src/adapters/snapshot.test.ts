@@ -14,6 +14,17 @@ describe('parseSnapshot', () => {
     expect(JSON.stringify(result.value)).toBe(JSON.stringify(fixture.figmaSnapshot))
   })
 
+  it('preserves the export timestamp and omits it when absent (invariant 10)', () => {
+    const stamped = { ...(wire() as Record<string, unknown>), exportedAt: '2026-08-30T12:00:00.000Z' }
+    const result = parseSnapshot(stamped)
+    if (!result.ok) throw new Error('expected the stamped snapshot to parse')
+    expect(result.value.exportedAt).toBe('2026-08-30T12:00:00.000Z')
+
+    const bare = parseSnapshot(wire())
+    if (!bare.ok) throw new Error('expected the corpus snapshot to parse')
+    expect('exportedAt' in bare.value).toBe(false)
+  })
+
   it('refuses a snapshot written by a newer engine (invariant 9)', () => {
     const input = wire() as { schemaVersion: number }
     input.schemaVersion = SNAPSHOT_SCHEMA_VERSION + 1

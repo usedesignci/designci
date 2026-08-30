@@ -228,8 +228,15 @@ export function parseSnapshot(input: unknown): ParseResult<DesignSystemSnapshot>
       )
     : []
 
+  const exportedAt = input['exportedAt']
+
   return parseOk(
-    createSnapshot({ source, tokens, diagnostics: [...carried, ...diagnostics] }),
+    createSnapshot({
+      source,
+      tokens,
+      diagnostics: [...carried, ...diagnostics],
+      ...(typeof exportedAt === 'string' ? { exportedAt } : {}),
+    }),
     diagnostics,
   )
 }

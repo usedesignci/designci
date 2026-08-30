@@ -10,31 +10,62 @@ and the check runs where the work happens.
 
 Deterministic rules, no AI in the check path.
 
-## Status
+## The loop
 
-Pre-release: everything below is built and tested; the first npm publish is
-imminent (see [RELEASING.md](./RELEASING.md)).
+```mermaid
+flowchart LR
+  A["Figma plugin<br/>Design Check + export"] -- "figma.snapshot.json<br/>(committed like a lockfile)" --> B["Your repo"]
+  B --> C["designci check<br/>CLI &amp; GitHub Action"]
+  C -- "drift fails the PR" --> D["Fix the code —<br/>or the design"]
+  D -- "re-export when<br/>design decisions change" --> A
+```
+
+A designer exports the design system's *stated* decisions from Figma; the
+snapshot lives in the repo next to the code that ships them; every PR compares
+the two. When they disagree, someone decided something once and wrote it down
+twice — the check makes that visible before it ships.
 
 | Piece | Where |
 | --- | --- |
-| Engine (`@designci/core`) | [`packages/core`](./packages/core) — domain, normalization, rules, runner, adapters |
-| CLI (`designci`) | [`packages/cli`](./packages/cli) — `npx designci check`, exit codes 0/1/2 |
+| Engine (`@designci/core`) | [`packages/core`](./packages/core) — domain, normalization, rules, runner, adapters ([npm](https://www.npmjs.com/package/@designci/core)) |
+| CLI (`designci`) | [`packages/cli`](./packages/cli) — `npx designci check`, exit codes 0/1/2 ([npm](https://www.npmjs.com/package/designci)) |
 | Figma plugin | [`packages/figma-plugin`](./packages/figma-plugin) — Design Check + snapshot export |
-| GitHub Action | [`usedesignci/designci-action`](https://github.com/usedesignci/designci-action) — PR annotations (source of truth in [`action/`](./action)) |
+| GitHub Action | [Design CI Check](https://github.com/marketplace/actions/design-ci-check) — PR annotations (source of truth in [`action/`](./action)) |
 | Demo | [`usedesignci/demo`](https://github.com/usedesignci/demo) — a seeded-drift app to try the whole loop |
 
-The [Figma plugin](./packages/figma-plugin) exports the `figma.snapshot.json`
-that the CLI's `figma` source reads, and runs Design Check inside Figma: canvas
-lint (raw colors with the matching token named, off-scale spacing and radii,
-detached instances, WCAG text contrast — with jump-to-layer and per-file
-ignores) plus the same token engine CI runs.
+## See it work first
 
-## Quick start
+The fastest way to understand Design CI is a repo where the drift is already
+seeded: clone [`usedesignci/demo`](https://github.com/usedesignci/demo), run
+`npx designci check`, and read the three failures it was built to have. Then
+wire up your own project.
+
+## Set up your own project
+
+It takes one designer and one engineer, about five minutes each.
+
+**The designer, in the design-system Figma file:**
+
+1. Run the **Design CI** plugin. *Scan* lints the canvas and checks tokens with
+   no setup at all — raw colors (with the matching token named), off-scale
+   spacing and radii, detached instances, WCAG text contrast.
+2. Hit **Export snapshot** and hand `figma.snapshot.json` to whoever owns the
+   repo. That file is the design side of the conversation.
+
+**The engineer, in the repo:**
 
 ```bash
-npx designci init    # writes designci.config.json
-npx designci check   # compares your sources, exits 1 on drift
+mkdir -p design && mv ~/Downloads/figma.snapshot.json design/
+npx designci init     # detects sources, proposes token mappings, you confirm
+npx designci check    # compares design against code, exits 1 on drift
 ```
+
+`init` is a wizard: it finds your token sources (CSS custom properties, tokens
+JSON, a resolved Tailwind theme), proposes mappings where values agree —
+Tailwind stock defaults batched separately from your own decisions — and
+surfaces name-aligned pairs whose values *disagree*: confirming one of those
+hands you your first real drift before setup is even done. Nothing is written
+without your yes; the check never guesses a mapping on its own.
 
 ```
 Design CI — Acme
@@ -52,10 +83,33 @@ Design CI — Acme
   1 error, 5 warnings, 0 info
 ```
 
-Sources are declared in config: a Figma snapshot (exported by the Design CI
-plugin), a tokens JSON file, a stylesheet, or a resolved Tailwind theme. Already
-drifted? `designci check --update-baseline` accepts the current state; CI then
-fails only on drift introduced after it.
+**Already drifted?** Of course you are — every real system is.
+`designci check --update-baseline` accepts the current state so CI starts
+green and fails only on *new* drift; the accepted violations still count
+against the health score, so the number tells the truth while you pay the
+backlog down.
+
+**Then put it on every PR:**
+
+```yaml
+# .github/workflows/design-ci.yml
+name: Design CI
+on: pull_request
+permissions:
+  contents: read
+  checks: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: usedesignci/designci-action@v1
+```
+
+**Keeping it honest:** when design decisions change, the designer re-exports
+and the snapshot changes in a PR like any other code. The CLI nudges when a
+committed snapshot is more than 30 days old, so a stale copy of Figma doesn't
+quietly green-light old truth.
 
 ## What the engine does today
 

@@ -230,6 +230,40 @@ describe('designci check', () => {
   })
 })
 
+describe('snapshot staleness', () => {
+  async function stampSnapshot(exportedAt: string): Promise<void> {
+    const file = path.join(root, 'design/figma.snapshot.json')
+    const snapshot = JSON.parse(await readFile(file, 'utf8'))
+    await writeFile(file, JSON.stringify({ ...snapshot, exportedAt }))
+  }
+
+  it('nudges to re-export when the snapshot is old, without moving the exit code', async () => {
+    await writeProject()
+    await stampSnapshot('2020-01-01T00:00:00.000Z')
+    const result = await run('check')
+    expect(result.code).toBe(1)
+    expect(result.stdout).toContain('days ago')
+    expect(result.stdout).toContain('re-export')
+  })
+
+  it('stays quiet for a fresh snapshot and for one carrying no timestamp', async () => {
+    await writeProject()
+    await stampSnapshot(new Date().toISOString())
+    expect((await run('check')).stdout).not.toContain('days ago')
+
+    await writeProject() // rewrites the snapshot without exportedAt
+    expect((await run('check')).stdout).not.toContain('days ago')
+  })
+
+  it('never leaks the note into --json output (invariant 1)', async () => {
+    await writeProject()
+    await stampSnapshot('2020-01-01T00:00:00.000Z')
+    const result = await run('check', '--json')
+    expect(result.stdout).not.toContain('days ago')
+    expect(() => JSON.parse(result.stdout)).not.toThrow()
+  })
+})
+
 describe('designci check --update-baseline', () => {
   it('accepts current drift, then check passes and still reports it', async () => {
     await writeProject()
