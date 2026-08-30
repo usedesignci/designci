@@ -94,8 +94,9 @@ test('summary carries health, counts, drift and stale-baseline guidance', () => 
       staleBaselineEntries: [{ fingerprint: 'x', ruleId: 'r', code: 'c', sourceId: 's' }],
     }),
   )
-  assert.match(summary, /## Design CI — health 97%/)
-  assert.match(summary, /\| unaccepted \| 1 \| 0 \| 0 \| 1 \|/)
+  assert.match(summary, /## 🔴 Design CI/)
+  assert.match(summary, /(?:🟩){10} \*\*97%\*\*/u)
+  assert.match(summary, /\| \*\*unaccepted\*\* \| 1 \| 0 \| 0 \| \*\*1\*\* \|/)
   assert.match(summary, /\*\*error\*\* `radius\.lg`/)
   assert.match(summary, /`src\/styles\/tokens\.css:18`/)
   assert.match(summary, /1 baseline entry no longer match/)
@@ -106,7 +107,8 @@ test('a clean result summarizes as no drift', () => {
   const summary = toSummary(
     result({ violations: [], counts: { error: 0, warn: 0, info: 0, total: 0 } }),
   )
-  assert.match(summary, /No unaccepted drift\./)
+  assert.match(summary, /## 🟢 Design CI/)
+  assert.match(summary, /\*\*No unaccepted drift\*\*/)
 })
 
 test('outputs expose health and both counts', () => {

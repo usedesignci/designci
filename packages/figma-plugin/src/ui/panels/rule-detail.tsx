@@ -33,7 +33,14 @@ export function RuleDetail(props: RuleDetailProps) {
 
       <p class="footer-note">
         Severity is policy: set <code>"rules": {'{'} "{props.ruleId}": "error" {'}'}</code> in the
-        check config to change how this rule reports.
+        check config to change how this rule reports.{' '}
+        <a
+          href={`https://github.com/usedesignci/designci/blob/main/docs/rules.md#${props.ruleId}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Full docs ›
+        </a>
       </p>
     </>
   )

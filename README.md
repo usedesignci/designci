@@ -33,6 +33,16 @@ twice — the check makes that visible before it ships.
 | GitHub Action | [Design CI Check](https://github.com/marketplace/actions/design-ci-check) — PR annotations (source of truth in [`action/`](./action)) |
 | Demo | [`usedesignci/demo`](https://github.com/usedesignci/demo) — a seeded-drift app to try the whole loop |
 
+## Documentation
+
+The full guides live in [`docs/`](./docs):
+[getting started](./docs/getting-started.md) ·
+[the Figma plugin](./docs/figma-plugin.md) ·
+[configuration](./docs/configuration.md) ·
+[the CLI & baselines](./docs/cli.md) ·
+[rules](./docs/rules.md) ·
+[the GitHub Action](./docs/github-action.md)
+
 ## See it work first
 
 The fastest way to understand Design CI is a repo where the drift is already

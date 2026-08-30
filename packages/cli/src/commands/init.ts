@@ -320,7 +320,7 @@ export async function init(options: InitOptions): Promise<number> {
         '  3. Re-run `designci init` — it will propose token mappings for you to confirm.',
         '  4. Run `designci check`.',
         '',
-        'Docs: https://github.com/usedesignci/designci#readme',
+        'Docs: https://github.com/usedesignci/designci/blob/main/docs/getting-started.md',
       ].join('\n'),
     )
     return 0

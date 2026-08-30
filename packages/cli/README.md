@@ -3,6 +3,11 @@
 **CI for your design system.** Catch design drift between Figma and production
 before it ships.
 
+📚 **[Full documentation](https://github.com/usedesignci/designci/tree/main/docs)** —
+[getting started](https://github.com/usedesignci/designci/blob/main/docs/getting-started.md) ·
+[configuration](https://github.com/usedesignci/designci/blob/main/docs/configuration.md) ·
+[rules](https://github.com/usedesignci/designci/blob/main/docs/rules.md)
+
 ```bash
 npx designci init    # write a starter designci.config.json
 npx designci check   # compare sources and report drift

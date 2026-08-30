@@ -5,6 +5,8 @@ rule runner. The [`designci` CLI](https://www.npmjs.com/package/designci), the
 Figma plugin, the GitHub Action and the dashboard are all built on this package
 — none of them reimplement any of it.
 
+📚 **[Full documentation](https://github.com/usedesignci/designci/tree/main/docs)**
+
 ```ts
 import { allRules, runCheck } from '@designci/core'
 

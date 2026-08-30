@@ -3,6 +3,9 @@
 Run **Design Check** on a Figma file's variables and styles, and export the
 snapshot that `designci check` compares against production.
 
+📚 **[Full plugin guide](https://github.com/usedesignci/designci/blob/main/docs/figma-plugin.md)** —
+auto-scan, one-click fixes, promoting values to variables, repo sync setup.
+
 ## What it does
 
 - **Run Design Check** — a full scan of the current page:

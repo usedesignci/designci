@@ -67,18 +67,33 @@ export function toAnnotations(result, workdir = '.') {
 
 const SUMMARY_LIMIT = 50
 
+/** The health score as a ten-segment meter — GitHub markdown has no CSS, but
+ * block emoji make a perfectly good progress bar. */
+export function healthMeter(overall) {
+  const filled = Math.round(overall / 10)
+  const block = overall >= 90 ? '🟩' : overall >= 70 ? '🟨' : '🟥'
+  return `${block.repeat(filled)}${'⬜'.repeat(10 - filled)} **${overall}%**`
+}
+
 /** The job-summary markdown. Everything the terminal report says, for the PR. */
 export function toSummary(result) {
   const active = result.violations.filter((violation) => violation.baselined !== true)
   const baselined = result.violations.length - active.length
+  const failing = result.counts.error > 0
 
   const lines = [
-    `## Design CI — health ${result.health.overall}%`,
+    `## ${failing ? '🔴' : '🟢'} Design CI`,
     '',
-    `| | error | warn | info | total |`,
+    failing
+      ? `**${result.counts.error} ${result.counts.error === 1 ? 'error' : 'errors'} of unaccepted drift** — design and code disagree; fix whichever side is wrong.`
+      : '**No unaccepted drift** — design and code agree on everything not already accepted.',
+    '',
+    `Design health: ${healthMeter(result.health.overall)}`,
+    '',
+    `| | ⛔ error | ⚠️ warn | ℹ️ info | total |`,
     `| --- | --- | --- | --- | --- |`,
-    `| unaccepted | ${result.counts.error} | ${result.counts.warn} | ${result.counts.info} | ${result.counts.total} |`,
-    `| baselined | ${result.baselinedCounts.error} | ${result.baselinedCounts.warn} | ${result.baselinedCounts.info} | ${result.baselinedCounts.total} |`,
+    `| **unaccepted** | ${result.counts.error} | ${result.counts.warn} | ${result.counts.info} | **${result.counts.total}** |`,
+    `| **baselined** | ${result.baselinedCounts.error} | ${result.baselinedCounts.warn} | ${result.baselinedCounts.info} | **${result.baselinedCounts.total}** |`,
     '',
   ]
 
@@ -94,8 +109,6 @@ export function toSummary(result) {
       lines.push(`- …and ${active.length - SUMMARY_LIMIT} more`)
     }
     lines.push('')
-  } else {
-    lines.push('No unaccepted drift.', '')
   }
 
   if (baselined > 0) {
@@ -121,6 +134,11 @@ export function toSummary(result) {
     }
     lines.push('')
   }
+
+  lines.push(
+    `<sub>[Design CI](https://github.com/usedesignci/designci) — CI for your design system · [docs](https://github.com/usedesignci/designci/tree/main/docs) · [rules](https://github.com/usedesignci/designci/blob/main/docs/rules.md)</sub>`,
+    '',
+  )
 
   return lines.join('\n')
 }

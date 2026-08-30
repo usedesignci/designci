@@ -37,6 +37,8 @@ Exit codes:
   0  no unaccepted error-severity drift
   1  drift that should block the merge
   2  the check could not run
+
+Docs: https://github.com/usedesignci/designci/tree/main/docs
 `
 
 export interface MainIo {

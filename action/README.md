@@ -5,6 +5,11 @@ tokens. A thin wrapper over the [`designci` CLI](https://github.com/usedesignci/
 it runs `designci check`, turns violations into inline PR annotations and a job
 summary, and fails the job with the CLI's own exit code.
 
+📚 **[Full documentation](https://github.com/usedesignci/designci/tree/main/docs)** —
+[Action guide](https://github.com/usedesignci/designci/blob/main/docs/github-action.md) ·
+[configuration](https://github.com/usedesignci/designci/blob/main/docs/configuration.md) ·
+[rules](https://github.com/usedesignci/designci/blob/main/docs/rules.md)
+
 ## Usage
 
 ```yaml

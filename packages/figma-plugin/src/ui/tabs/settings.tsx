@@ -138,7 +138,14 @@ function RepoSync(props: { readonly sync: SyncState | null }) {
       <p class="footer-note">
         Use a fine-grained personal access token scoped to just this repository, with Contents and
         Pull requests read &amp; write. It is stored in Figma’s client storage on this computer —
-        never in the shared file — and is sent only to api.github.com when you push.
+        never in the shared file — and is sent only to api.github.com when you push.{' '}
+        <a
+          href="https://github.com/usedesignci/designci/blob/main/docs/figma-plugin.md#repo-sync"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Setup guide ›
+        </a>
       </p>
     </>
   )
@@ -206,7 +213,14 @@ export function SettingsTab(props: SettingsProps) {
         Every check runs locally inside Figma: no AI, no telemetry. The only network use is the
         optional repo sync above, which talks solely to api.github.com when you push a snapshot.
         Scans cover the current page; the design↔code comparison runs in CI via{' '}
-        <code>npx designci check</code>.
+        <code>npx designci check</code>.{' '}
+        <a
+          href="https://github.com/usedesignci/designci/blob/main/docs/figma-plugin.md"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Full plugin guide ›
+        </a>
       </p>
     </>
   )

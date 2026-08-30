@@ -56,7 +56,7 @@ test('annotates every unaccepted violation exactly once', () => {
 
 test('summary and outputs read the real result shape', () => {
   const summary = toSummary(result)
-  assert.match(summary, new RegExp(`health ${result.health.overall}%`))
+  assert.match(summary, new RegExp(`\\*\\*${result.health.overall}%\\*\\*`))
   assert.match(summary, /`radius\.lg`/)
   assert.deepEqual(toOutputs(result), [
     `health=${result.health.overall}`,
