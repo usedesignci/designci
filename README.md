@@ -72,7 +72,9 @@ JSON, a resolved Tailwind theme), proposes mappings where values agree —
 Tailwind stock defaults batched separately from your own decisions — and
 surfaces name-aligned pairs whose values *disagree*: confirming one of those
 hands you your first real drift before setup is even done. Nothing is written
-without your yes; the check never guesses a mapping on its own.
+without your yes; the check never guesses a mapping on its own. And it ends by
+offering to accept today's drift into the baseline — so setup finishes with a
+green check that fails only on drift introduced *after* it.
 
 ```
 Design CI — Acme

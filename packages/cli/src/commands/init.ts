@@ -20,10 +20,13 @@ import path from 'node:path'
 import {
   type DesignSystemSnapshot,
   type MappingSuggestion,
+  allRules,
+  createBaseline,
+  runCheck,
   suggestMappings,
 } from '@designci/core'
 
-import { CONFIG_FILE, loadProject } from '../project.js'
+import { BASELINE_FILE, CONFIG_FILE, loadProject } from '../project.js'
 
 export interface InitOptions {
   readonly root: string
@@ -222,6 +225,54 @@ async function writeMappings(
 }
 
 /* ------------------------------------------------------------------ *
+ * The last step: green is the happy path.
+ *
+ * A first check that fails on years of accumulated drift teaches "this tool
+ * is red", and red tools get removed. So init ends by offering the baseline:
+ * accept what exists today, fail only on drift introduced after. Accepted
+ * drift still counts against the health score (invariant 11) — the baseline
+ * suppresses the failure, never the truth. Never written without a yes, and
+ * never over an existing baseline.
+ * ------------------------------------------------------------------ */
+
+async function offerBaseline(options: InitOptions): Promise<void> {
+  const baselinePath = path.resolve(options.root, BASELINE_FILE)
+  if (await exists(baselinePath)) return
+
+  const loaded = await loadProject(options.root)
+  if (!loaded.ok) return
+  const { config, snapshots, diagnostics } = loaded.project
+  if (diagnostics.some((diagnostic) => diagnostic.severity === 'error')) return
+  if (snapshots.length < 2) return
+
+  const result = runCheck({ snapshots, rules: allRules, config })
+  if (result.violations.length === 0) {
+    options.write('\n`designci check` is clean — green from day one.')
+    return
+  }
+
+  const count = result.violations.length
+  const plural = count === 1 ? 'existing issue' : 'existing issues'
+  if (options.ask === undefined) {
+    options.write(
+      `\nThe check currently finds ${count} ${plural}. Green is the happy path: run \`designci check --update-baseline\` to accept today's drift, so CI fails only on drift introduced after.`,
+    )
+    return
+  }
+
+  const answer = await options.ask(
+    `\nThe check currently finds ${count} ${plural}. Accept them into ${BASELINE_FILE} so CI starts green and fails only on NEW drift? They still count against the health score. [Y/n] `,
+  )
+  if (!isYes(answer, true)) return
+
+  const baseline = createBaseline(result.violations)
+  await writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`)
+  options.write(
+    `Accepted ${baseline.entries.length} into ${BASELINE_FILE} — \`designci check\` is green, and the health score keeps telling the truth.`,
+  )
+}
+
+/* ------------------------------------------------------------------ *
  * The command
  * ------------------------------------------------------------------ */
 
@@ -295,6 +346,7 @@ export async function init(options: InitOptions): Promise<number> {
         ? 'No mapping suggestions: no token values or names line up across sources yet.'
         : 'No new mapping suggestions — every pair that lines up is already mapped.',
     )
+    await offerBaseline(options)
     return 0
   }
 
@@ -316,6 +368,7 @@ export async function init(options: InitOptions): Promise<number> {
 
   if (accepted.length === 0) {
     options.write('\nNo mappings accepted; the config is unchanged.')
+    await offerBaseline(options)
     return 0
   }
 
@@ -333,5 +386,6 @@ export async function init(options: InitOptions): Promise<number> {
       'Run `designci check`.',
     ].join('\n'),
   )
+  await offerBaseline(options)
   return 0
 }

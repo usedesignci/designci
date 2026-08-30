@@ -127,7 +127,8 @@ packages/cli/src/
   main.ts      the designci executable; commands/ init + check; output/ render.
                init is the onboarding wizard: detects source files, runs the
                core suggester, confirms pairs interactively (or in bulk with
-               --accept-suggestions; drift pairs always need a human yes)
+               --accept-suggestions; drift pairs always need a human yes), and
+               ends by offering the baseline so setup finishes green
   project.ts   the CLI's only I/O: read config, baseline and sources off disk
 packages/core/src/
   domain/      token, snapshot, source, rule, violation, result

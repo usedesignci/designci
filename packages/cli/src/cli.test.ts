@@ -151,8 +151,8 @@ describe('designci init', () => {
   it('confirms interactively and records confirmed drift pairs', async () => {
     await writeProject(false)
     // 'a' accepts every remaining value match; '' takes the default Y on the
-    // drift question.
-    const result = await runWith(['a', ''], 'init')
+    // drift question; 'n' declines the baseline so the drift stays failing.
+    const result = await runWith(['a', '', 'n'], 'init')
     expect(result.code).toBe(0)
     expect(result.stdout).toContain('Values disagree')
     const mappings = (await readConfig())['mappings'] as Record<string, string>[]
@@ -173,6 +173,25 @@ describe('designci init', () => {
     const result = await run('init')
     expect(result.code).toBe(0)
     expect(result.stdout).toContain('already mapped')
+    // Non-interactive: the baseline is hinted at, never written silently.
+    expect(result.stdout).toContain('--update-baseline')
+    await expect(readFile(path.join(root, 'designci.baseline.json'), 'utf8')).rejects.toThrow()
+  })
+
+  it('ends green: offers the baseline and the next check passes (invariant 11 intact)', async () => {
+    await writeProject(false)
+    // Accept all matches, the drift pair, and the baseline (all defaults).
+    const result = await runWith(['a', '', ''], 'init')
+    expect(result.code).toBe(0)
+    expect(result.stdout).toContain('starts green')
+    const baseline = JSON.parse(await readFile(path.join(root, 'designci.baseline.json'), 'utf8'))
+    expect(baseline.entries.length).toBeGreaterThan(0)
+
+    const check = await run('check')
+    expect(check.code).toBe(0)
+    expect(check.stdout).toContain('accepted in the baseline')
+    // The drift is suppressed as a failure, not as a fact.
+    expect(check.stdout).not.toContain('Design health: 100%')
   })
 })
 
