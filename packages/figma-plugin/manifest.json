@@ -7,7 +7,7 @@
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
   "networkAccess": {
-    "allowedDomains": ["none"],
-    "reasoning": "No AI in the check path, no telemetry: everything runs locally in the plugin sandbox."
+    "allowedDomains": ["https://api.github.com"],
+    "reasoning": "No AI in the check path, no telemetry: every check runs locally in the plugin sandbox. The only network use is the optional repo sync, which talks solely to the GitHub API when the user pushes a snapshot pull request."
   }
 }

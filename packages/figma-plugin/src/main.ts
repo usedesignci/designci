@@ -22,9 +22,22 @@ import { extractSnapshot } from './extract.js'
 import { parseIgnores } from './ignores.js'
 import { CANVAS_RULE_IDS, lintCanvas, tokenBreakdown } from './lint.js'
 import type { MainMessage, ScanPayload, UiMessage } from './messages.js'
+import {
+  buildCommitMessage,
+  buildPrBody,
+  buildPrTitle,
+  parseSyncSettings,
+  snapshotHash,
+  type SyncSettings,
+} from './sync.js'
 
 const CONFIG_KEY = 'designci.config'
 const IGNORES_KEY = 'designci.canvasIgnores'
+/** Repo + last-pushed hash: shared via the document, so the whole team sees
+ * the same current/behind answer. The token is NOT here — see TOKEN_KEY. */
+const SYNC_KEY = 'designci.sync'
+/** Per-user client storage: the token never enters the shared document. */
+const TOKEN_KEY = 'designci.githubToken'
 
 const KNOWN_RULE_IDS = [...allRules.map((rule) => rule.id as string), ...CANVAS_RULE_IDS]
 
@@ -63,6 +76,74 @@ function saveIgnores(ignores: readonly string[]): void {
 /** Lets the UI iframe paint between synchronous stages of a scan. */
 const yieldToUi = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
+function loadSync(): { settings?: SyncSettings; lastPushedHash?: string } {
+  const stored = figma.root.getPluginData(SYNC_KEY)
+  const settings = parseSyncSettings(stored)
+  let lastPushedHash: string | undefined
+  try {
+    const decoded = JSON.parse(stored) as Record<string, unknown>
+    if (typeof decoded['lastPushedHash'] === 'string') lastPushedHash = decoded['lastPushedHash']
+  } catch {
+    /* absent or malformed: no recorded push */
+  }
+  return {
+    ...(settings === undefined ? {} : { settings }),
+    ...(lastPushedHash === undefined ? {} : { lastPushedHash }),
+  }
+}
+
+function saveSync(settings: SyncSettings | undefined, lastPushedHash: string | undefined): void {
+  if (settings === undefined) {
+    figma.root.setPluginData(SYNC_KEY, '')
+    return
+  }
+  figma.root.setPluginData(
+    SYNC_KEY,
+    JSON.stringify({
+      ...settings,
+      ...(lastPushedHash === undefined ? {} : { lastPushedHash }),
+    }),
+  )
+}
+
+async function loadToken(): Promise<string> {
+  const stored: unknown = await figma.clientStorage.getAsync(TOKEN_KEY)
+  return typeof stored === 'string' ? stored : ''
+}
+
+/** The export payload: the snapshot stamped at the boundary (extract stays
+ * pure) plus its content hash — exportedAt excluded from identity by design. */
+async function stampedExport(): Promise<{
+  snapshot: ReturnType<typeof extractSnapshot>
+  json: string
+  hash: string
+}> {
+  const document = await collectDocument()
+  const snapshot = extractSnapshot(document)
+  const json = JSON.stringify({ ...snapshot, exportedAt: new Date().toISOString() }, null, 2)
+  return { snapshot, json, hash: snapshotHash(snapshot) }
+}
+
+/** Posts the sync state; recomputes the document hash unless one is passed. */
+async function postSyncState(currentHash?: string): Promise<void> {
+  const { settings, lastPushedHash } = loadSync()
+  const token = await loadToken()
+  let hash = currentHash
+  if (hash === undefined) {
+    const document = await collectDocument()
+    hash = snapshotHash(extractSnapshot(document))
+  }
+  post({
+    type: 'sync-state',
+    state: {
+      ...(settings === undefined ? {} : { settings }),
+      hasToken: token !== '',
+      ...(lastPushedHash === undefined ? {} : { lastPushedHash }),
+      currentHash: hash,
+    },
+  })
+}
+
 async function scan(): Promise<ScanPayload> {
   // Each progress step is a real stage, posted as it starts — no theatre.
   post({ type: 'scan-progress', step: 'document' })
@@ -86,6 +167,9 @@ async function scan(): Promise<ScanPayload> {
   // enter healthScore() (invariant 6).
   const result = runCheck({ snapshots: [snapshot], rules: allRules, config })
   const canvas = lintCanvas({ canvas: collectedCanvas, snapshot, config, ignores })
+
+  // The scan already extracted the snapshot; refresh the sync state for free.
+  await postSyncState(snapshotHash(snapshot))
 
   return {
     result,
@@ -118,19 +202,57 @@ async function handle(message: UiMessage): Promise<void> {
       return
     }
     case 'export': {
-      const document = await collectDocument()
-      const snapshot = extractSnapshot(document)
-      // The timestamp is stamped here at the boundary, not in extract (which
-      // stays pure): it lets the CLI warn when a committed snapshot has gone
-      // stale. Nothing in the check path reads it.
-      const exported = { ...snapshot, exportedAt: new Date().toISOString() }
+      const { snapshot, json } = await stampedExport()
       // Stable filename so the repo path in designci.config.json never churns.
       post({
         type: 'snapshot',
-        json: JSON.stringify(exported, null, 2),
+        json,
         fileName: 'figma.snapshot.json',
         tokenCount: snapshot.tokens.length,
       })
+      return
+    }
+    case 'load-sync': {
+      await postSyncState()
+      return
+    }
+    case 'save-sync-settings': {
+      // Changing the target repo resets the pushed-hash memory: the old
+      // answer was about a different repo.
+      saveSync(message.settings ?? undefined, undefined)
+      await postSyncState()
+      return
+    }
+    case 'save-sync-token': {
+      await figma.clientStorage.setAsync(TOKEN_KEY, message.token)
+      await postSyncState()
+      return
+    }
+    case 'push-snapshot': {
+      const { settings } = loadSync()
+      const token = await loadToken()
+      if (settings === undefined || token === '') {
+        figma.notify('Connect a repo and save a GitHub token in Settings first.')
+        await postSyncState()
+        return
+      }
+      const { snapshot, json, hash } = await stampedExport()
+      post({
+        type: 'push-context',
+        json,
+        hash,
+        settings,
+        token,
+        commitMessage: buildCommitMessage(snapshot),
+        prTitle: buildPrTitle(),
+        prBody: buildPrBody(snapshot, tokenBreakdown(snapshot)),
+      })
+      return
+    }
+    case 'record-push': {
+      const { settings } = loadSync()
+      saveSync(settings, message.hash)
+      await postSyncState(message.hash)
       return
     }
     case 'save-config': {

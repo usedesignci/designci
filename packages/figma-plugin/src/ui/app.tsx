@@ -9,7 +9,8 @@
 import { useEffect, useState } from 'preact/hooks'
 
 import type { CanvasFinding } from '../lint.js'
-import type { ScanPayload, ScanStepId } from '../messages.js'
+import type { ScanPayload, ScanStepId, SyncState } from '../messages.js'
+import { pushSnapshot, type PushResult } from './github.js'
 import { Icon } from './icons.js'
 import { RuleDetail } from './panels/rule-detail.js'
 import { HomeTab } from './tabs/home.js'
@@ -31,6 +32,11 @@ export interface ConfigState {
   readonly saved?: boolean
 }
 
+export interface PushState {
+  readonly busy: boolean
+  readonly result?: PushResult
+}
+
 export function App() {
   const [tab, setTab] = useState<Tab>('home')
   const [scan, setScan] = useState<ScanPayload | null>(null)
@@ -40,6 +46,8 @@ export function App() {
   const [exportNote, setExportNote] = useState('')
   const [config, setConfig] = useState<ConfigState>({ json: '' })
   const [detail, setDetail] = useState<Detail>(null)
+  const [sync, setSync] = useState<SyncState | null>(null)
+  const [push, setPush] = useState<PushState>({ busy: false })
 
   useEffect(() => {
     const stop = listen((message) => {
@@ -71,9 +79,28 @@ export function App() {
           setStep(null)
           send({ type: 'scan' })
           break
+        case 'sync-state':
+          setSync(message.state)
+          break
+        case 'push-context':
+          // The network lives here in the iframe; main handed us everything.
+          void pushSnapshot({
+            settings: message.settings,
+            token: message.token,
+            json: message.json,
+            localHash: message.hash,
+            commitMessage: message.commitMessage,
+            prTitle: message.prTitle,
+            prBody: message.prBody,
+          }).then((result) => {
+            if (result.kind !== 'error') send({ type: 'record-push', hash: message.hash })
+            setPush({ busy: false, result })
+          })
+          break
       }
     })
     send({ type: 'load-config' })
+    send({ type: 'load-sync' })
     return stop
   }, [])
 
@@ -90,6 +117,11 @@ export function App() {
     send({ type: 'export' })
   }
 
+  const startPush = (): void => {
+    setPush({ busy: true })
+    send({ type: 'push-snapshot' })
+  }
+
   return (
     <>
       <div class="content">
@@ -99,6 +131,10 @@ export function App() {
             scanning={scanning}
             exporting={exporting}
             exportNote={exportNote}
+            sync={sync}
+            push={push}
+            onPush={startPush}
+            onConnect={() => setTab('settings')}
             onScan={startScan}
             onExport={startExport}
             onViewResults={() => {
@@ -127,7 +163,7 @@ export function App() {
           ) : (
             <RulesTab onRule={(ruleId) => setDetail({ kind: 'rule', ruleId })} />
           ))}
-        {tab === 'settings' && <SettingsTab config={config} scan={scan} />}
+        {tab === 'settings' && <SettingsTab config={config} scan={scan} sync={sync} />}
       </div>
       <nav class="tabs">
         {(

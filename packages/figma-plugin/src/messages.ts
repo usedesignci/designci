@@ -9,6 +9,7 @@
 import type { CheckResult, DesignSystemSnapshot } from '@designci/core'
 
 import type { CanvasLintResult, ComponentInventory } from './lint.js'
+import type { SyncSettings } from './sync.js'
 
 /* ------------------------------------------------------------------ *
  * UI -> main
@@ -31,6 +32,16 @@ export type UiMessage =
   | { readonly type: 'remove-ignore'; readonly key: string }
   /** Set one rule's severity to 'off' in the stored config. */
   | { readonly type: 'disable-rule'; readonly ruleId: string }
+  /** Ask for the current sync state (sent once when the UI boots). */
+  | { readonly type: 'load-sync' }
+  /** Persist repo sync settings into the document; null disconnects. */
+  | { readonly type: 'save-sync-settings'; readonly settings: SyncSettings | null }
+  /** Persist this user's GitHub token in clientStorage; '' clears it. */
+  | { readonly type: 'save-sync-token'; readonly token: string }
+  /** Ask main for everything a push needs (replied with push-context). */
+  | { readonly type: 'push-snapshot' }
+  /** The UI's push succeeded; record the pushed content hash. */
+  | { readonly type: 'record-push'; readonly hash: string }
 
 /* ------------------------------------------------------------------ *
  * main -> UI
@@ -62,9 +73,33 @@ export const SCAN_STEPS = [
 
 export type ScanStepId = (typeof SCAN_STEPS)[number]['id']
 
+/** Everything the UI needs to render "connected / current / behind". The
+ * token itself never rides this message — only whether one is saved. */
+export interface SyncState {
+  readonly settings?: SyncSettings
+  readonly hasToken: boolean
+  /** Content hash recorded by the last successful push, if any. */
+  readonly lastPushedHash?: string
+  /** Content hash of the document's tokens right now. */
+  readonly currentHash: string
+}
+
 export type MainMessage =
   | { readonly type: 'scan-progress'; readonly step: ScanStepId }
   | { readonly type: 'scan-result'; readonly payload: ScanPayload }
+  | { readonly type: 'sync-state'; readonly state: SyncState }
+  /** Reply to push-snapshot: the UI performs the push (network lives in the
+   * iframe); the token crosses here at push time only, never stored UI-side. */
+  | {
+      readonly type: 'push-context'
+      readonly json: string
+      readonly hash: string
+      readonly settings: SyncSettings
+      readonly token: string
+      readonly commitMessage: string
+      readonly prTitle: string
+      readonly prBody: string
+    }
   | {
       readonly type: 'snapshot'
       readonly json: string

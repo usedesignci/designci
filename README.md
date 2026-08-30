@@ -52,6 +52,13 @@ It takes one designer and one engineer, about five minutes each.
 2. Hit **Export snapshot** and hand `figma.snapshot.json` to whoever owns the
    repo. That file is the design side of the conversation.
 
+Or skip the handoff: connect the repo once in the plugin's Settings (owner/repo
+plus a fine-grained token scoped to just that repository) and the Home tab shows
+whether the repo's copy is current — when it's behind, one click commits the
+snapshot to a `design-ci/snapshot` branch and opens (or refreshes) a pull
+request, where the check runs. The plugin stays offline otherwise: the only
+network call it can ever make is to api.github.com, when you push.
+
 **The engineer, in the repo:**
 
 ```bash

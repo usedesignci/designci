@@ -1,4 +1,5 @@
-import type { ScanPayload } from '../../messages.js'
+import type { ScanPayload, SyncState } from '../../messages.js'
+import type { PushState } from '../app.js'
 import { Icon } from '../icons.js'
 
 export interface HomeProps {
@@ -6,10 +7,87 @@ export interface HomeProps {
   readonly scanning: boolean
   readonly exporting: boolean
   readonly exportNote: string
+  readonly sync: SyncState | null
+  readonly push: PushState
+  readonly onPush: () => void
+  readonly onConnect: () => void
   readonly onScan: () => void
   readonly onExport: () => void
   readonly onViewResults: () => void
   readonly onViewRules: () => void
+}
+
+/** The repo-sync card: connect prompt, or current/behind with one-click push. */
+function SyncCard(props: {
+  readonly sync: SyncState
+  readonly push: PushState
+  readonly onPush: () => void
+  readonly onConnect: () => void
+}) {
+  const { sync, push } = props
+  const settings = sync.settings
+
+  if (settings === undefined || !sync.hasToken) {
+    return (
+      <ul class="card card-group sync-card">
+        <li>
+          <button class="list-row" onClick={props.onConnect}>
+            <span class="icon-tile">
+              <Icon name="arrow-up-tray" size={15} />
+            </span>
+            <span class="grow">
+              <strong>{settings === undefined ? 'Connect your repo' : 'Add your GitHub token'}</strong>
+              <span class="desc">
+                {settings === undefined
+                  ? 'Open snapshot PRs from here with one click'
+                  : `Pushes to ${settings.owner}/${settings.repo} need your own token — Settings → Repo sync`}
+              </span>
+            </span>
+            <span class="chevron">›</span>
+          </button>
+        </li>
+      </ul>
+    )
+  }
+
+  const behind = sync.lastPushedHash === undefined || sync.lastPushedHash !== sync.currentHash
+  const result = push.result
+  const prUrl = result !== undefined && result.kind !== 'error' ? result.prUrl : undefined
+
+  return (
+    <div class={`card sync-card ${behind ? '' : 'sync-current'}`}>
+      <div class="row">
+        <span class={`status-icon ${behind ? 'behind' : 'current'}`}>
+          <Icon name={behind ? 'arrow-up-tray' : 'check-circle'} size={13} />
+        </span>
+        <span class="grow" style="flex: 1; min-width: 0">
+          <strong>
+            {behind
+              ? sync.lastPushedHash === undefined
+                ? 'Snapshot not pushed yet'
+                : 'Repo copy is behind'
+              : 'Repo copy is up to date'}
+          </strong>
+          <span class="desc">
+            {settings.owner}/{settings.repo} · {settings.path}
+          </span>
+        </span>
+      </div>
+      {behind && (
+        <button class="primary" onClick={props.onPush} disabled={push.busy}>
+          {push.busy ? 'Pushing…' : `Push update to ${settings.owner}/${settings.repo}`}
+        </button>
+      )}
+      {result?.kind === 'error' && <p class="error-text sync-note">{result.message}</p>}
+      {prUrl !== undefined && (
+        <p class="sync-note">
+          <a href={prUrl} target="_blank" rel="noreferrer">
+            {result?.kind === 'opened' ? 'Pull request opened ›' : 'View the open pull request ›'}
+          </a>
+        </p>
+      )}
+    </div>
+  )
 }
 
 export function HomeTab(props: HomeProps) {
@@ -67,6 +145,15 @@ export function HomeTab(props: HomeProps) {
         </button>
       )}
 
+      {props.sync !== null && (
+        <SyncCard
+          sync={props.sync}
+          push={props.push}
+          onPush={props.onPush}
+          onConnect={props.onConnect}
+        />
+      )}
+
       <h2>Quick actions</h2>
       <ul class="card card-group">
         <li>
@@ -122,8 +209,8 @@ export function HomeTab(props: HomeProps) {
       )}
 
       <p class="footer-note">
-        No network access: nothing leaves Figma. The full design↔code comparison runs in CI with
-        <code> npx designci check</code>.
+        Checks run locally — nothing leaves Figma unless you push to your connected repo. The full
+        design↔code comparison runs in CI with <code>npx designci check</code>.
       </p>
     </>
   )

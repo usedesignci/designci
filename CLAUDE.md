@@ -101,6 +101,14 @@ packages/figma-plugin/src/
                Judgments are binding state + value equality only; findings
                never enter healthScore()
   contrast.ts  pure WCAG math; ignores.ts pure ignore keys; rule-docs.ts prose
+  sync.ts      pure: snapshot content hash (exportedAt excluded), commit/PR
+               copy, SyncSettings parsing — the judgments behind repo sync
+  ui/github.ts the only networked module anywhere in the plugin: pushes the
+               snapshot to a design-ci/snapshot branch + reused PR via
+               api.github.com, the manifest's single allowlisted host. fetch is
+               injected and every path is tested against a scripted fake. The
+               check path never touches it (invariant 2); the PAT lives in
+               figma.clientStorage (per-user), never in the shared document
   collect.ts   the only module touching the figma global; contains no decisions
   main.ts      plugin entry / message router; messages.ts the typed protocol
   ui/          Preact app (Home/Scan/Settings), bundled inline into dist/ui.html

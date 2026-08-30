@@ -232,6 +232,33 @@ nav.tabs button.active { color: var(--brand); font-weight: 700; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Form fields (Repo sync) */
+input[type="text"], input[type="password"] {
+  width: 100%; font: inherit; color: inherit; background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--radius-control);
+  padding: 7px 10px;
+}
+.field { margin-bottom: var(--space-2); min-width: 0; }
+.field label {
+  display: block; font-size: 10px; font-weight: 600; color: var(--text-2);
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px;
+}
+.field-row { display: flex; gap: var(--space-2); }
+.field-row .field { flex: 1; }
+a { color: var(--brand); text-decoration: none; font-weight: 600; }
+a:hover { text-decoration: underline; }
+
+/* Repo sync card */
+.sync-card { margin-top: var(--space-3); }
+div.sync-card { padding: var(--space-3); }
+div.sync-card .row strong { font-size: 13px; display: block; }
+div.sync-card .desc { color: var(--text-2); font-size: 11px; display: block; }
+div.sync-card button.primary { margin-top: var(--space-3); }
+.sync-card .status-icon.current { background: var(--ok); }
+.sync-card .status-icon.behind { background: var(--brand); }
+.sync-note { margin: var(--space-2) 0 0; font-size: 12px; }
+.sync-current { border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+
 /* Post-export next steps */
 .export-next { padding: var(--space-3); margin-top: var(--space-4); }
 .export-next p { margin: 0; font-size: 12px; color: var(--text-2); }
