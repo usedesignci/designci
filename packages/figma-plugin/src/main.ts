@@ -60,18 +60,32 @@ function saveIgnores(ignores: readonly string[]): void {
   figma.root.setPluginData(IGNORES_KEY, JSON.stringify(ignores))
 }
 
+/** Lets the UI iframe paint between synchronous stages of a scan. */
+const yieldToUi = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
+
 async function scan(): Promise<ScanPayload> {
+  // Each progress step is a real stage, posted as it starts — no theatre.
+  post({ type: 'scan-progress', step: 'document' })
   const document = await collectDocument()
   const snapshot = extractSnapshot(document)
   const { config } = loadConfig()
   const ignores = loadIgnores()
 
+  post({ type: 'scan-progress', step: 'canvas' })
+  await yieldToUi()
+  const collectedCanvas = collectCanvas()
+
+  post({ type: 'scan-progress', step: 'components' })
+  await yieldToUi()
+  const inventory = collectComponents()
+
+  post({ type: 'scan-progress', step: 'checks' })
+  await yieldToUi()
   // Token rules run through the engine; cross-source rules stand down with one
   // source, by construction. Canvas lint runs alongside — its findings never
   // enter healthScore() (invariant 6).
   const result = runCheck({ snapshots: [snapshot], rules: allRules, config })
-  const canvas = lintCanvas({ canvas: collectCanvas(), snapshot, config, ignores })
-  const inventory = collectComponents()
+  const canvas = lintCanvas({ canvas: collectedCanvas, snapshot, config, ignores })
 
   return {
     result,

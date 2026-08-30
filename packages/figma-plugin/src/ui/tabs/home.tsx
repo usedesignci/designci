@@ -8,6 +8,7 @@ export interface HomeProps {
   readonly exportNote: string
   readonly onScan: () => void
   readonly onExport: () => void
+  readonly onViewResults: () => void
   readonly onViewRules: () => void
 }
 
@@ -15,70 +16,91 @@ export function HomeTab(props: HomeProps) {
   const { scan } = props
   const canvasIssues = scan === null ? 0 : scan.canvas.findings.length
   const tokenIssues = scan === null ? 0 : scan.result.counts.total
-  const issueCount = scan === null ? null : canvasIssues + tokenIssues
+  const issueCount = canvasIssues + tokenIssues
 
   return (
     <>
-      <h1>Design CI</h1>
+      <div class="brand-row">
+        <span class="brand-mark">
+          <Icon name="check-circle" size={16} />
+        </span>
+        <h1 style="flex: 1">Design CI</h1>
+        <span class="beta">BETA</span>
+      </div>
       <p class="sub">Keep this file and production in sync — everything runs locally.</p>
 
-      {scan !== null && issueCount !== null && (
-        <div class={`status-card ${issueCount === 0 ? 'good' : 'bad'}`}>
-          <span class="headline">
+      <button class="primary" onClick={props.onScan} disabled={props.scanning}>
+        {props.scanning ? 'Scanning…' : 'Run Design Check'}
+      </button>
+
+      {scan !== null && (
+        <button
+          class={`status-card ${issueCount === 0 ? 'good' : 'bad'}`}
+          onClick={props.onViewResults}
+        >
+          <span class="status-icon">
             <Icon name={issueCount === 0 ? 'check-circle' : 'exclamation-triangle'} size={14} />
-            {issueCount === 0 ? (
-              <strong class="clean">No issues on “{scan.pageName}”.</strong>
-            ) : (
-              <strong>
-                {canvasIssues > 0 &&
-                  `${canvasIssues} canvas ${canvasIssues === 1 ? 'issue' : 'issues'}`}
-                {canvasIssues > 0 && tokenIssues > 0 && ' · '}
-                {tokenIssues > 0 &&
-                  `${tokenIssues} token ${tokenIssues === 1 ? 'issue' : 'issues'}`}{' '}
-                on “{scan.pageName}”
-              </strong>
-            )}
           </span>
-          <div class="muted">
-            Tokens: {tokenIssues === 0 ? 'clean' : `${tokenIssues} issues`} · health{' '}
-            {scan.result.health.overall}% · {scan.tokenCount} tokens ·{' '}
-            {scan.inventory.componentCount} components
-            {scan.canvas.ignored.length > 0 ? ` · ${scan.canvas.ignored.length} ignored` : ''}
-          </div>
-        </div>
+          <span class="grow" style="flex: 1; min-width: 0">
+            <span class="headline">
+              {issueCount === 0 ? (
+                <>No issues on “{scan.pageName}”</>
+              ) : (
+                <>
+                  {canvasIssues > 0 &&
+                    `${canvasIssues} canvas ${canvasIssues === 1 ? 'issue' : 'issues'}`}
+                  {canvasIssues > 0 && tokenIssues > 0 && ' · '}
+                  {tokenIssues > 0 &&
+                    `${tokenIssues} token ${tokenIssues === 1 ? 'issue' : 'issues'}`}{' '}
+                  on “{scan.pageName}”
+                </>
+              )}
+            </span>
+            <span class="meta">
+              Tokens: {tokenIssues === 0 ? 'clean' : `${tokenIssues} issues`} · health{' '}
+              {scan.result.health.overall}% · {scan.tokenCount} tokens ·{' '}
+              {scan.inventory.componentCount} components
+              {scan.canvas.ignored.length > 0 ? ` · ${scan.canvas.ignored.length} ignored` : ''}
+            </span>
+          </span>
+          <span class="chevron">›</span>
+        </button>
       )}
 
       <h2>Quick actions</h2>
-      <ul class="plain">
+      <ul class="card card-group">
         <li>
-          <button class="list-row" onClick={props.onScan} disabled={props.scanning}>
-            <Icon name="magnifying-glass" size={16} />
+          <button class="list-row" onClick={props.onExport} disabled={props.exporting}>
+            <span class="icon-tile">
+              <Icon name="arrow-down-tray" size={15} />
+            </span>
             <span class="grow">
-              <strong>{props.scanning ? 'Scanning…' : 'Run Design Check'}</strong>
-              <br />
-              <span class="muted">Tokens, duplicates and canvas issues on the current page</span>
+              <strong>{props.exporting ? 'Exporting…' : 'Export snapshot'}</strong>
+              <span class="desc">figma.snapshot.json for CI — commit it like a lockfile</span>
             </span>
             <span class="chevron">›</span>
           </button>
         </li>
         <li>
-          <button class="list-row" onClick={props.onExport} disabled={props.exporting}>
-            <Icon name="arrow-down-tray" size={16} />
+          <button class="list-row" onClick={props.onViewResults}>
+            <span class="icon-tile">
+              <Icon name="magnifying-glass" size={15} />
+            </span>
             <span class="grow">
-              <strong>{props.exporting ? 'Exporting…' : 'Export snapshot'}</strong>
-              <br />
-              <span class="muted">figma.snapshot.json for CI — commit it like a lockfile</span>
+              <strong>View scan results</strong>
+              <span class="desc">Issues, token inventory and components</span>
             </span>
             <span class="chevron">›</span>
           </button>
         </li>
         <li>
           <button class="list-row" onClick={props.onViewRules}>
-            <Icon name="clipboard-document-list" size={16} />
+            <span class="icon-tile">
+              <Icon name="clipboard-document-list" size={15} />
+            </span>
             <span class="grow">
-              <strong>View scan results</strong>
-              <br />
-              <span class="muted">Issues, rules and token inventory</span>
+              <strong>Browse rules</strong>
+              <span class="desc">What gets checked, and how to fix each issue</span>
             </span>
             <span class="chevron">›</span>
           </button>

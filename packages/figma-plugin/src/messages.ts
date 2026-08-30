@@ -52,7 +52,18 @@ export interface ScanPayload {
   readonly ignores: readonly string[]
 }
 
+/** The real stages of a scan, in order, for the progress screen. */
+export const SCAN_STEPS = [
+  { id: 'document', label: 'Reading tokens & styles' },
+  { id: 'canvas', label: 'Scanning the canvas' },
+  { id: 'components', label: 'Scanning components' },
+  { id: 'checks', label: 'Running checks' },
+] as const
+
+export type ScanStepId = (typeof SCAN_STEPS)[number]['id']
+
 export type MainMessage =
+  | { readonly type: 'scan-progress'; readonly step: ScanStepId }
   | { readonly type: 'scan-result'; readonly payload: ScanPayload }
   | {
       readonly type: 'snapshot'

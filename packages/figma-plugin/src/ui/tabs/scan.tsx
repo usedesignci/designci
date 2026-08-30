@@ -1,13 +1,15 @@
 import type { CanvasFinding } from '../../lint.js'
-import type { ScanPayload } from '../../messages.js'
+import type { ScanPayload, ScanStepId } from '../../messages.js'
 import type { Detail } from '../app.js'
 import { Icon } from '../icons.js'
 import { IssueDetail } from '../panels/issue-detail.js'
+import { ScanProgress } from '../panels/progress.js'
 import { RuleDetail } from '../panels/rule-detail.js'
 
 export interface ScanProps {
   readonly scan: ScanPayload | null
   readonly scanning: boolean
+  readonly step: ScanStepId | null
   readonly detail: Detail
   readonly onScan: () => void
   readonly onDetail: (detail: Detail) => void
@@ -26,7 +28,7 @@ export function ScanTab(props: ScanProps) {
     return <RuleDetail ruleId={detail.ruleId} onBack={() => props.onDetail(null)} />
   }
 
-  if (props.scanning) return <p class="sub">Scanning “current page”…</p>
+  if (props.scanning) return <ScanProgress current={props.step} />
   if (scan === null) {
     return (
       <>
@@ -79,7 +81,7 @@ export function ScanTab(props: ScanProps) {
       {canvasIssues > 0 && (
         <>
           <h2>Canvas issues</h2>
-          <ul class="plain">
+          <ul class="card card-group">
             {scan.canvas.findings.map((finding) => (
               <li key={`${finding.code}:${finding.value ?? finding.nodes[0]?.id}`}>
                 <button class="list-row" onClick={() => props.onDetail({ kind: 'issue', finding })}>
@@ -108,7 +110,7 @@ export function ScanTab(props: ScanProps) {
               runs.
             </p>
           )}
-          <ul class="plain">
+          <ul class="card card-group">
             {scan.result.violations
               .filter((violation) => violation.baselined !== true)
               .map((violation) => (
