@@ -143,9 +143,7 @@ export function IssueDetail(props: IssueDetailProps) {
                 Create &amp; bind {finding.nodes.length}{' '}
                 {finding.nodes.length === 1 ? 'layer' : 'layers'}
               </button>
-              <button class="small" onClick={() => setPromoting(false)}>
-                Cancel
-              </button>
+              <button onClick={() => setPromoting(false)}>Cancel</button>
             </div>
             <p class="footer-note">
               The proposed name comes from the value; rename it to what the decision means. Groups

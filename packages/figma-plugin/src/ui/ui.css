@@ -272,6 +272,11 @@ div.sync-card button.primary { margin-top: var(--space-3); }
   padding: var(--space-3); background: var(--bg-2);
 }
 .promote-form .footer-note { margin-top: var(--space-2); }
+/* Inside .actions every button is full-width; the form's row is two equal
+ * buttons instead: the confirm grows, Cancel stays natural, heights match. */
+.promote-form .row button { width: auto; }
+.promote-form .row button.fix { flex: 1; justify-content: center; }
+.promote-form input { background: var(--bg); }
 .sync-current { border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
 
 /* Post-export next steps */
