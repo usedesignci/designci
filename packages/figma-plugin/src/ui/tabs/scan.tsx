@@ -1,6 +1,7 @@
 import type { CanvasFinding } from '../../lint.js'
 import type { ScanPayload } from '../../messages.js'
 import type { Detail } from '../app.js'
+import { Icon } from '../icons.js'
 import { IssueDetail } from '../panels/issue-detail.js'
 import { RuleDetail } from '../panels/rule-detail.js'
 
@@ -53,20 +54,27 @@ export function ScanTab(props: ScanProps) {
 
       <div class="tiles">
         <div class="tile">
+          <Icon name="tag" size={14} />
           <span class="num">{scan.tokenCount}</span>
           <span class="muted">Tokens</span>
         </div>
         <div class="tile">
+          <Icon name="squares-2x2" size={14} />
           <span class="num">{scan.inventory.componentCount}</span>
           <span class="muted">Components</span>
         </div>
         <div class={`tile ${issues > 0 ? 'bad' : ''}`}>
+          <Icon name={issues > 0 ? 'exclamation-triangle' : 'check-circle'} size={14} />
           <span class="num">{issues}</span>
           <span class="muted">Issues</span>
         </div>
       </div>
 
-      {issues === 0 && <p class="clean">No issues found. Ship it.</p>}
+      {issues === 0 && (
+        <p class="clean">
+          <Icon name="check-circle" size={14} /> No issues found. Ship it.
+        </p>
+      )}
 
       {canvasIssues > 0 && (
         <>
@@ -94,6 +102,12 @@ export function ScanTab(props: ScanProps) {
       {tokenIssues > 0 && (
         <>
           <h2>Token issues · health {scan.result.health.overall}%</h2>
+          {canvasIssues > 0 && (
+            <p class="health-note">
+              Canvas issues don't affect the health score — that number is the token comparison CI
+              runs.
+            </p>
+          )}
           <ul class="plain">
             {scan.result.violations
               .filter((violation) => violation.baselined !== true)

@@ -1,6 +1,7 @@
 import type { CanvasFinding } from '../../lint.js'
 import { ignoreKeyFor } from '../../ignores.js'
 import { RULE_DOCS } from '../../rule-docs.js'
+import { Icon } from '../icons.js'
 import { send } from '../state.js'
 
 export interface IssueDetailProps {
@@ -17,7 +18,7 @@ export function IssueDetail(props: IssueDetailProps) {
     <>
       <div class="panel-header">
         <button class="back" onClick={props.onBack} aria-label="Back">
-          ←
+          <Icon name="chevron-left" size={16} />
         </button>
         <span class={`badge ${finding.severity}`}>{doc?.title ?? finding.code}</span>
       </div>
@@ -45,7 +46,7 @@ export function IssueDetail(props: IssueDetailProps) {
           <li key={node.id} class="layer-row">
             <span class="grow">{node.name}</span>
             <button class="small" onClick={() => send({ type: 'select-nodes', ids: [node.id] })}>
-              Select
+              <Icon name="viewfinder-circle" size={12} /> Select
             </button>
           </li>
         ))}
@@ -64,13 +65,14 @@ export function IssueDetail(props: IssueDetailProps) {
       <h2>Actions</h2>
       <div class="row">
         <button onClick={() => send({ type: 'add-ignore', key: ignoreKeyFor(finding) })}>
-          Ignore {finding.value !== undefined ? 'this value' : 'this layer'}
+          <Icon name="eye-slash" size={12} /> Ignore{' '}
+          {finding.value !== undefined ? 'this value' : 'this layer'}
         </button>
         <button onClick={() => send({ type: 'disable-rule', ruleId: finding.code })}>
-          Disable rule
+          <Icon name="no-symbol" size={12} /> Disable rule
         </button>
         <button class="small" onClick={() => props.onRule(finding.code)}>
-          About this rule
+          <Icon name="information-circle" size={12} /> About
         </button>
       </div>
       <p class="footer-note">

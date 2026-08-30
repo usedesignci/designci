@@ -1,4 +1,5 @@
 import { RULE_DOCS } from '../../rule-docs.js'
+import { Icon } from '../icons.js'
 
 export interface RuleDetailProps {
   readonly ruleId: string
@@ -12,7 +13,7 @@ export function RuleDetail(props: RuleDetailProps) {
     <>
       <div class="panel-header">
         <button class="back" onClick={props.onBack} aria-label="Back">
-          ←
+          <Icon name="chevron-left" size={16} />
         </button>
         <h1>{doc?.title ?? props.ruleId}</h1>
       </div>

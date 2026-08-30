@@ -10,6 +10,7 @@ import { useEffect, useState } from 'preact/hooks'
 
 import type { CanvasFinding } from '../lint.js'
 import type { ScanPayload } from '../messages.js'
+import { Icon } from './icons.js'
 import { HomeTab } from './tabs/home.js'
 import { ScanTab } from './tabs/scan.js'
 import { SettingsTab } from './tabs/settings.js'
@@ -109,16 +110,23 @@ export function App() {
         {tab === 'settings' && <SettingsTab config={config} scan={scan} />}
       </div>
       <nav class="tabs">
-        {(['home', 'scan', 'settings'] as const).map((name) => (
+        {(
+          [
+            { name: 'home', label: 'Home', icon: 'home' },
+            { name: 'scan', label: 'Scan', icon: 'magnifying-glass' },
+            { name: 'settings', label: 'Settings', icon: 'cog-6-tooth' },
+          ] as const
+        ).map((entry) => (
           <button
-            key={name}
-            class={tab === name ? 'active' : ''}
+            key={entry.name}
+            class={tab === entry.name ? 'active' : ''}
             onClick={() => {
-              setTab(name)
-              if (name !== 'scan') setDetail(null)
+              setTab(entry.name)
+              if (entry.name !== 'scan') setDetail(null)
             }}
           >
-            {name === 'home' ? 'Home' : name === 'scan' ? 'Scan' : 'Settings'}
+            <Icon name={entry.icon} size={16} />
+            {entry.label}
           </button>
         ))}
       </nav>

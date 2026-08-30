@@ -1,4 +1,5 @@
 import type { ScanPayload } from '../../messages.js'
+import { Icon } from '../icons.js'
 
 export interface HomeProps {
   readonly scan: ScanPayload | null
@@ -12,8 +13,9 @@ export interface HomeProps {
 
 export function HomeTab(props: HomeProps) {
   const { scan } = props
-  const issueCount =
-    scan === null ? null : scan.canvas.findings.length + scan.result.counts.total
+  const canvasIssues = scan === null ? 0 : scan.canvas.findings.length
+  const tokenIssues = scan === null ? 0 : scan.result.counts.total
+  const issueCount = scan === null ? null : canvasIssues + tokenIssues
 
   return (
     <>
@@ -22,16 +24,25 @@ export function HomeTab(props: HomeProps) {
 
       {scan !== null && issueCount !== null && (
         <div class={`status-card ${issueCount === 0 ? 'good' : 'bad'}`}>
-          {issueCount === 0 ? (
-            <strong class="clean">No issues on “{scan.pageName}”.</strong>
-          ) : (
-            <strong>
-              {issueCount} {issueCount === 1 ? 'issue' : 'issues'} on “{scan.pageName}” — design
-              health {scan.result.health.overall}%
-            </strong>
-          )}
+          <span class="headline">
+            <Icon name={issueCount === 0 ? 'check-circle' : 'exclamation-triangle'} size={14} />
+            {issueCount === 0 ? (
+              <strong class="clean">No issues on “{scan.pageName}”.</strong>
+            ) : (
+              <strong>
+                {canvasIssues > 0 &&
+                  `${canvasIssues} canvas ${canvasIssues === 1 ? 'issue' : 'issues'}`}
+                {canvasIssues > 0 && tokenIssues > 0 && ' · '}
+                {tokenIssues > 0 &&
+                  `${tokenIssues} token ${tokenIssues === 1 ? 'issue' : 'issues'}`}{' '}
+                on “{scan.pageName}”
+              </strong>
+            )}
+          </span>
           <div class="muted">
-            {scan.tokenCount} tokens · {scan.inventory.componentCount} components
+            Tokens: {tokenIssues === 0 ? 'clean' : `${tokenIssues} issues`} · health{' '}
+            {scan.result.health.overall}% · {scan.tokenCount} tokens ·{' '}
+            {scan.inventory.componentCount} components
             {scan.canvas.ignored.length > 0 ? ` · ${scan.canvas.ignored.length} ignored` : ''}
           </div>
         </div>
@@ -41,6 +52,7 @@ export function HomeTab(props: HomeProps) {
       <ul class="plain">
         <li>
           <button class="list-row" onClick={props.onScan} disabled={props.scanning}>
+            <Icon name="magnifying-glass" size={16} />
             <span class="grow">
               <strong>{props.scanning ? 'Scanning…' : 'Run Design Check'}</strong>
               <br />
@@ -51,6 +63,7 @@ export function HomeTab(props: HomeProps) {
         </li>
         <li>
           <button class="list-row" onClick={props.onExport} disabled={props.exporting}>
+            <Icon name="arrow-down-tray" size={16} />
             <span class="grow">
               <strong>{props.exporting ? 'Exporting…' : 'Export snapshot'}</strong>
               <br />
@@ -61,6 +74,7 @@ export function HomeTab(props: HomeProps) {
         </li>
         <li>
           <button class="list-row" onClick={props.onViewRules}>
+            <Icon name="clipboard-document-list" size={16} />
             <span class="grow">
               <strong>View scan results</strong>
               <br />
