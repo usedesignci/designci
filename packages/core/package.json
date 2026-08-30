@@ -1,6 +1,6 @@
 {
   "name": "@designci/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Design CI engine: domain model, value normalization, and the deterministic rule runner.",
   "license": "Apache-2.0",
   "type": "module",

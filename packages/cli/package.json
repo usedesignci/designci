@@ -1,6 +1,6 @@
 {
   "name": "designci",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CI for your design system. Catch design drift between Figma and production before it ships.",
   "keywords": [
     "design-system",
