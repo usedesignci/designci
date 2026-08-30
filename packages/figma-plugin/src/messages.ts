@@ -52,6 +52,16 @@ export type UiMessage =
       readonly nodes: readonly string[]
       readonly fix: CanvasFix
     }
+  /** Create a variable from a finding's value (human-confirmed name) and bind
+   * the offending nodes to it. */
+  | {
+      readonly type: 'promote-value'
+      readonly code: CanvasRuleId
+      readonly value: string
+      readonly nodes: readonly string[]
+      /** Dotted or slashed; main normalizes to Figma's slash groups. */
+      readonly name: string
+    }
 
 /* ------------------------------------------------------------------ *
  * main -> UI

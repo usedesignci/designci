@@ -101,6 +101,20 @@ describe('lintCanvas — the seeded issues, and only those', () => {
     expect(result.findings.find((f) => f.code === 'canvas-detached-instance')?.fix).toBeUndefined()
   })
 
+  it('offers promotion with a proposed name where creating a token makes sense', () => {
+    const byCode = new Map(result.findings.map((finding) => [`${finding.code}:${finding.value ?? ''}`, finding]))
+    // A raw color matching nothing: propose a hue-family name in the file's
+    // own prefix, for the human to confirm or rewrite.
+    expect(byCode.get('canvas-raw-color:#123456')?.promote).toEqual({ name: 'color.blue' })
+    // A raw color that can simply bind gets no promotion offer.
+    expect(byCode.get('canvas-raw-color:#ff6b00')?.promote).toBeUndefined()
+    // Off-scale values can become new steps, named by their value.
+    expect(byCode.get('canvas-raw-spacing:10px')?.promote).toEqual({ name: 'space.10' })
+    expect(byCode.get('canvas-raw-radius:5px')?.promote).toEqual({ name: 'radius.5' })
+    // Contrast failures are fixed, never promoted.
+    expect(byCode.get('canvas-text-contrast:#999999 on #ffffff')?.promote).toBeUndefined()
+  })
+
   it('surfaces what it could not judge instead of staying silent (invariant 7)', () => {
     expect(
       result.skipped.map((note) => `${note.code}:${note.nodeName}`).sort(),

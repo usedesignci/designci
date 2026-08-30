@@ -108,6 +108,98 @@ export function contrastFix(
   return { hex: '#000000', ratio: contrastRatio({ r: 0, g: 0, b: 0, a: 1 }, background) }
 }
 
+/* ------------------------------------------------------------------ *
+ * Promoting a value to a variable.
+ *
+ * Creation is never automatic — the human confirms (or rewrites) the name,
+ * because names carry meaning the value cannot supply. What CAN be computed
+ * is a sensible proposal: the hue family for a color, the pixel value for a
+ * scale step, prefixed with the file's own dominant naming convention.
+ * ------------------------------------------------------------------ */
+
+/** The hue-family word for a color — pure math over HSL, no cleverness. */
+export function hueFamily(rgba: Rgba): string {
+  const r = rgba.r / 255
+  const g = rgba.g / 255
+  const b = rgba.b / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const lightness = (max + min) / 2
+  const delta = max - min
+  const saturation =
+    delta === 0 ? 0 : delta / (lightness > 0.5 ? 2 - max - min : max + min)
+
+  if (lightness >= 0.95) return 'white'
+  if (lightness <= 0.08) return 'black'
+  if (saturation < 0.12) return 'gray'
+
+  let hue = 0
+  if (delta !== 0) {
+    if (max === r) hue = ((g - b) / delta) % 6
+    else if (max === g) hue = (b - r) / delta + 2
+    else hue = (r - g) / delta + 4
+    hue = (hue * 60 + 360) % 360
+  }
+
+  if (hue < 15 || hue >= 345) return 'red'
+  if (hue < 45) return 'orange'
+  if (hue < 70) return 'yellow'
+  if (hue < 160) return 'green'
+  if (hue < 200) return 'teal'
+  if (hue < 260) return 'blue'
+  if (hue < 300) return 'purple'
+  return 'pink'
+}
+
+function unique(candidate: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(candidate)) return candidate
+  for (let suffix = 2; ; suffix += 1) {
+    const next = `${candidate}-${suffix}`
+    if (!taken.has(next)) return next
+  }
+}
+
+/** The dominant first path segment among tokens of a kind — the file's own
+ * convention — falling back to the conventional default. */
+export function dominantPrefix(
+  names: readonly string[],
+  fallback: string,
+): string {
+  const counts = new Map<string, number>()
+  for (const name of names) {
+    const head = name.split('.')[0]
+    if (head === undefined || head === '') continue
+    counts.set(head, (counts.get(head) ?? 0) + 1)
+  }
+  let best = fallback
+  let bestCount = 0
+  for (const [head, count] of [...counts.entries()].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    if (count > bestCount) {
+      best = head
+      bestCount = count
+    }
+  }
+  return best
+}
+
+/** Proposed dotted name for promoting a raw color: `color.blue`, unique. */
+export function proposeColorName(
+  rgba: Rgba,
+  existingColorNames: readonly string[],
+): string {
+  const prefix = dominantPrefix(existingColorNames, 'color')
+  return unique(`${prefix}.${hueFamily(rgba)}`, new Set(existingColorNames))
+}
+
+/** Proposed dotted name for a new scale step: `space.10`, unique. */
+export function proposeStepName(
+  namespace: string,
+  px: number,
+  existingNames: readonly string[],
+): string {
+  return unique(`${namespace}.${px}`, new Set(existingNames))
+}
+
 /** One-line description of a fix, shared by the button and notifications. */
 export function describeFix(fix: CanvasFix): string {
   switch (fix.kind) {

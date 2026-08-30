@@ -78,6 +78,17 @@ function SyncCard(props: {
           {push.busy ? 'Pushing…' : `Push update to ${settings.owner}/${settings.repo}`}
         </button>
       )}
+      {!behind && (
+        <p class="sync-note muted">
+          Canvas edits and bindings don’t change token values, so there’s nothing to sync.{' '}
+          <button class="linklike" onClick={props.onPush} disabled={push.busy}>
+            {push.busy ? 'Pushing…' : 'Push anyway'}
+          </button>
+        </p>
+      )}
+      {result?.kind === 'unchanged' && !behind && (
+        <p class="sync-note muted">The repo already matches this file.</p>
+      )}
       {result?.kind === 'error' && <p class="error-text sync-note">{result.message}</p>}
       {prUrl !== undefined && (
         <p class="sync-note">

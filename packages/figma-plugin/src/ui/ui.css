@@ -262,6 +262,16 @@ div.sync-card button.primary { margin-top: var(--space-3); }
 .sync-card .status-icon.current { background: var(--ok); }
 .sync-card .status-icon.behind { background: var(--brand); }
 .sync-note { margin: var(--space-2) 0 0; font-size: 12px; }
+.linklike {
+  border: 0; background: none; padding: 0; font: inherit; font-weight: 600;
+  color: var(--brand); cursor: pointer;
+}
+.linklike:hover { background: none; text-decoration: underline; }
+.promote-form {
+  border: 1px solid var(--border); border-radius: var(--radius-control);
+  padding: var(--space-3); background: var(--bg-2);
+}
+.promote-form .footer-note { margin-top: var(--space-2); }
 .sync-current { border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
 
 /* Post-export next steps */

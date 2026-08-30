@@ -1,3 +1,5 @@
+import { useState } from 'preact/hooks'
+
 import { describeFix } from '../../fix.js'
 import type { CanvasFinding } from '../../lint.js'
 import { ignoreKeyFor } from '../../ignores.js'
@@ -15,6 +17,20 @@ export function IssueDetail(props: IssueDetailProps) {
   const { finding } = props
   const doc = RULE_DOCS[finding.code]
   const isColor = finding.code === 'canvas-raw-color'
+  const [promoting, setPromoting] = useState(false)
+  const [promoteName, setPromoteName] = useState(finding.promote?.name ?? '')
+
+  const submitPromote = (): void => {
+    if (finding.value === undefined || promoteName.trim() === '') return
+    send({
+      type: 'promote-value',
+      code: finding.code,
+      value: finding.value,
+      nodes: finding.nodes.map((node) => node.id),
+      name: promoteName.trim(),
+    })
+    props.onBack()
+  }
 
   return (
     <>
@@ -104,6 +120,38 @@ export function IssueDetail(props: IssueDetailProps) {
             <Icon name="check-circle" size={13} />
             {describeFix(finding.fix)}
           </button>
+        )}
+        {finding.promote !== undefined && finding.value !== undefined && !promoting && (
+          <button onClick={() => setPromoting(true)}>
+            <Icon name="tag" size={13} />
+            Create a variable from {finding.value}…
+          </button>
+        )}
+        {promoting && (
+          <div class="promote-form">
+            <div class="field">
+              <label>New variable name</label>
+              <input
+                type="text"
+                value={promoteName}
+                onInput={(event) => setPromoteName((event.target as HTMLInputElement).value)}
+              />
+            </div>
+            <div class="row">
+              <button class="fix" onClick={submitPromote} disabled={promoteName.trim() === ''}>
+                <Icon name="tag" size={13} />
+                Create &amp; bind {finding.nodes.length}{' '}
+                {finding.nodes.length === 1 ? 'layer' : 'layers'}
+              </button>
+              <button class="small" onClick={() => setPromoting(false)}>
+                Cancel
+              </button>
+            </div>
+            <p class="footer-note">
+              The proposed name comes from the value; rename it to what the decision means. Groups
+              use “.” or “/”.
+            </p>
+          </div>
         )}
         <button onClick={() => send({ type: 'add-ignore', key: ignoreKeyFor(finding) })}>
           <Icon name="eye-slash" size={13} />

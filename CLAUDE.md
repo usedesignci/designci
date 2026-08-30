@@ -103,7 +103,9 @@ packages/figma-plugin/src/
   fix.ts       pure auto-fix decisions: bind value-equal colors, snap to the
                nearest scale step, recolor failing text (existing passing token
                preferred, computed color only as fallback); never invents a
-               name or variable. main.ts applies them at the boundary
+               name or variable. Promotion PROPOSES names (hue family, px
+               value, the file's own prefix) — a human confirms in an input
+               before anything is created. main.ts applies at the boundary
   contrast.ts  pure WCAG math; ignores.ts pure ignore keys; rule-docs.ts prose
   sync.ts      pure: snapshot content hash (exportedAt excluded), commit/PR
                copy, SyncSettings parsing — the judgments behind repo sync

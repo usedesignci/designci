@@ -292,23 +292,7 @@ async function applyFix(
     case 'snap-dimension': {
       const variable = await findVariableByTokenName(fix.variableName, 'FLOAT')
       const from = value === undefined ? Number.NaN : Number.parseFloat(value)
-      const fields = code === 'canvas-raw-radius' ? RADIUS_FIELDS : SPACING_FIELDS
-      for (const node of nodes) {
-        for (const field of fields) {
-          const record = node as unknown as Record<string, unknown>
-          const current = record[field]
-          if (typeof current !== 'number') continue
-          // Only the offending value moves; other fields on the node stay put.
-          if (!Number.isNaN(from) && current !== from) continue
-          if ((node.boundVariables as Record<string, unknown> | undefined)?.[field]) continue
-          if (variable !== undefined) {
-            node.setBoundVariable(field as VariableBindableNodeField, variable)
-          } else {
-            record[field] = fix.px
-          }
-          touched += 1
-        }
-      }
+      touched = applyDimensionToNodes(nodes, code, from, variable, fix.px)
       break
     }
     case 'recolor-text': {
@@ -335,6 +319,125 @@ async function applyFix(
   } else {
     figma.notify(`${describeFix(fix)} — ${touched} ${touched === 1 ? 'change' : 'changes'} applied.`)
   }
+  scheduleAutoScan(0)
+}
+
+/** Binds/sets the offending dimension fields; shared by snap and promote. */
+function applyDimensionToNodes(
+  nodes: readonly SceneNode[],
+  code: string,
+  fromPx: number,
+  variable: Variable | undefined,
+  px: number,
+): number {
+  const fields = code === 'canvas-raw-radius' ? RADIUS_FIELDS : SPACING_FIELDS
+  let touched = 0
+  for (const node of nodes) {
+    for (const field of fields) {
+      const record = node as unknown as Record<string, unknown>
+      const current = record[field]
+      if (typeof current !== 'number') continue
+      // Only the offending value moves; other fields on the node stay put.
+      if (!Number.isNaN(fromPx) && current !== fromPx) continue
+      if ((node.boundVariables as Record<string, unknown> | undefined)?.[field]) continue
+      if (variable !== undefined) {
+        node.setBoundVariable(field as VariableBindableNodeField, variable)
+      } else {
+        record[field] = px
+      }
+      touched += 1
+    }
+  }
+  return touched
+}
+
+/**
+ * Creates a variable from a finding's value — with the human-confirmed name —
+ * and binds the offending nodes. The name arrived from an input the user
+ * edited; the plugin proposed, the human decided (invariant 4's spirit).
+ */
+async function promoteValue(
+  code: string,
+  value: string,
+  nodeIds: readonly string[],
+  rawName: string,
+): Promise<void> {
+  const slashName = rawName.trim().replace(/\./g, '/').replace(/\/+/g, '/').replace(/^\/|\/$/g, '')
+  if (slashName === '') {
+    figma.notify('The variable needs a name.', { error: true })
+    return
+  }
+
+  const type: VariableResolvedDataType = code === 'canvas-raw-color' ? 'COLOR' : 'FLOAT'
+  const all = await figma.variables.getLocalVariablesAsync()
+  if (all.some((variable) => variable.name === slashName)) {
+    figma.notify(`A variable named ${slashName} already exists — pick another name.`, {
+      error: true,
+    })
+    return
+  }
+
+  // Home for the new variable: where most variables of this type already
+  // live, so it lands beside its peers; a fresh collection only when the file
+  // has none at all.
+  const collections = await figma.variables.getLocalVariableCollectionsAsync()
+  const counts = new Map<string, number>()
+  for (const variable of all) {
+    if (variable.resolvedType !== type) continue
+    counts.set(
+      variable.variableCollectionId,
+      (counts.get(variable.variableCollectionId) ?? 0) + 1,
+    )
+  }
+  const home =
+    collections
+      .filter((collection) => (counts.get(collection.id) ?? 0) > 0)
+      .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))[0] ??
+    collections[0] ??
+    figma.variables.createVariableCollection('Tokens')
+
+  const variable = figma.variables.createVariable(slashName, home, type)
+  const modeId = home.defaultModeId
+
+  if (type === 'COLOR') {
+    const match = /^#([0-9a-f]{6})([0-9a-f]{2})?$/.exec(value)
+    if (match === null) {
+      figma.notify(`Could not read ${value} as a colour; re-scan and try again.`, { error: true })
+      variable.remove()
+      return
+    }
+    const body = match[1] as string
+    const alpha = match[2]
+    variable.setValueForMode(modeId, {
+      r: Number.parseInt(body.slice(0, 2), 16) / 255,
+      g: Number.parseInt(body.slice(2, 4), 16) / 255,
+      b: Number.parseInt(body.slice(4, 6), 16) / 255,
+      a: alpha === undefined ? 1 : Number.parseInt(alpha, 16) / 255,
+    })
+  } else {
+    const px = Number.parseFloat(value)
+    if (Number.isNaN(px)) {
+      figma.notify(`Could not read ${value} as a number; re-scan and try again.`, { error: true })
+      variable.remove()
+      return
+    }
+    variable.setValueForMode(modeId, px)
+  }
+
+  const nodes = (
+    await Promise.all(nodeIds.map((id) => figma.getNodeByIdAsync(id)))
+  ).filter((node): node is SceneNode => node !== null && 'visible' in node)
+
+  let touched = 0
+  if (type === 'COLOR') {
+    for (const node of nodes) touched += bindMatchingPaints(node, value, variable)
+  } else {
+    touched = applyDimensionToNodes(nodes, code, Number.parseFloat(value), variable, 0)
+  }
+
+  figma.notify(
+    `Created ${slashName} and bound ${touched} ${touched === 1 ? 'field' : 'fields'}.`,
+  )
   scheduleAutoScan(0)
 }
 
@@ -496,6 +599,10 @@ async function handle(message: UiMessage): Promise<void> {
     }
     case 'apply-fix': {
       await applyFix(message.code, message.value, message.nodes, message.fix)
+      return
+    }
+    case 'promote-value': {
+      await promoteValue(message.code, message.value, message.nodes, message.name)
       return
     }
     case 'save-config': {

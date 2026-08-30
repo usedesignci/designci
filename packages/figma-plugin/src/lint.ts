@@ -29,7 +29,14 @@ import {
 } from '@designci/core'
 
 import { aaThreshold, contrastRatio, passesAa } from './contrast.js'
-import { contrastFix, nearestStep, type CanvasFix, type ColorTokenEntry } from './fix.js'
+import {
+  contrastFix,
+  nearestStep,
+  proposeColorName,
+  proposeStepName,
+  type CanvasFix,
+  type ColorTokenEntry,
+} from './fix.js'
 import { isIgnored } from './ignores.js'
 
 /* ------------------------------------------------------------------ *
@@ -131,6 +138,9 @@ export interface CanvasFinding {
   readonly scale?: readonly string[]
   /** One-click remedy, when one exists that invents nothing (see fix.ts). */
   readonly fix?: CanvasFix
+  /** Offer to promote this value to a new variable, with a proposed name the
+   * human confirms or rewrites — creation is never automatic. */
+  readonly promote?: { readonly name: string }
 }
 
 export interface SkipNote {
@@ -221,6 +231,32 @@ interface Group {
   readonly suggestions: readonly string[]
 }
 
+/** Parses a finding's grouped hex value back to rgba (6 or 8 digit). */
+function parseGroupHex(value: string): Rgba | undefined {
+  const match = /^#([0-9a-f]{6})([0-9a-f]{2})?$/.exec(value)
+  if (match === null) return undefined
+  const body = match[1] as string
+  const alpha = match[2]
+  return {
+    r: Number.parseInt(body.slice(0, 2), 16),
+    g: Number.parseInt(body.slice(2, 4), 16),
+    b: Number.parseInt(body.slice(4, 6), 16),
+    a: alpha === undefined ? 1 : Math.round((Number.parseInt(alpha, 16) / 255) * 10000) / 10000,
+  }
+}
+
+/** The promote offer for an off-scale dimension: a new step named after its
+ * value, for the human to confirm or rename. */
+function stepPromote(
+  namespace: string,
+  value: string,
+  takenNames: readonly string[],
+): { promote: { name: string } } | Record<string, never> {
+  const px = Number.parseFloat(value)
+  if (Number.isNaN(px)) return {}
+  return { promote: { name: proposeStepName(namespace, px, takenNames) } }
+}
+
 /** The snap fix for an off-scale value: nearest step, bound to the token
  * holding it. The full-bleed 9999px "pill" step is excluded as a snap target —
  * snapping a 12px radius to a capsule would be a redesign, not a fix. */
@@ -304,6 +340,7 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
   const colorTokens: readonly ColorTokenEntry[] = snapshot.tokens
     .filter((token) => token.value.kind === 'color')
     .map((token) => ({ name: tokenName(token), rgba: (token.value as ColorValue).rgba }))
+  const allTokenNames = snapshot.tokens.map((token) => tokenName(token))
   const byId = new Map(canvas.nodes.map((node) => [node.id, node]))
 
   // Nodes inside instances mirror their main component; the fix belongs on the
@@ -339,9 +376,20 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
             : `${group.value} is used raw on ${where} and matches no token in this file`,
         nodes: group.nodes,
         ...(group.suggestions.length > 0 ? { suggestions: group.suggestions } : {}),
-        ...(group.suggestions[0] === undefined
-          ? {}
-          : { fix: { kind: 'bind-color', variableName: group.suggestions[0] } as CanvasFix }),
+        // A value-equal token exists: binding is the fix. No match: offer to
+        // promote the value, name confirmed by a human.
+        ...(group.suggestions[0] !== undefined
+          ? { fix: { kind: 'bind-color', variableName: group.suggestions[0] } as CanvasFix }
+          : parseGroupHex(group.value) === undefined
+            ? {}
+            : {
+                promote: {
+                  name: proposeColorName(
+                    parseGroupHex(group.value) as Rgba,
+                    colorTokens.map((token) => token.name),
+                  ),
+                },
+              }),
       })
     }
   }
@@ -375,6 +423,9 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
         nodes: group.nodes,
         ...(scale.length > 0 ? { scale } : {}),
         ...snapFix(group.value, spacing),
+        // "If the scale genuinely needs a new step, add the token first" —
+        // the rule doc's own advice, offered as an action.
+        ...stepPromote('space', group.value, allTokenNames),
       })
     }
   }
@@ -409,6 +460,7 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
         nodes: group.nodes,
         ...(scale.length > 0 ? { scale } : {}),
         ...snapFix(group.value, radii),
+        ...stepPromote('radius', group.value, allTokenNames),
       })
     }
   }

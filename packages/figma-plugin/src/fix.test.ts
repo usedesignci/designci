@@ -4,6 +4,7 @@ import type { Rgba } from '@designci/core'
 
 import { contrastRatio } from './contrast.js'
 import { contrastFix, describeFix, nearestStep, type ColorTokenEntry } from './fix.js'
+import * as fixModule from './fix.js'
 
 const rgba = (r: number, g: number, b: number): Rgba => ({ r, g, b, a: 1 })
 const WHITE = rgba(255, 255, 255)
@@ -66,6 +67,34 @@ describe('contrastFix', () => {
       )
       expect(contrastRatio(parsed, background)).toBeGreaterThanOrEqual(4.5)
     }
+  })
+})
+
+describe('promotion proposals', () => {
+  it('names colors by hue family, pure math', () => {
+    const { hueFamily } = fixModule
+    expect(hueFamily(rgba(0x18, 0x5e, 0xc1))).toBe('blue')
+    expect(hueFamily(rgba(0xff, 0x6b, 0x00))).toBe('orange')
+    expect(hueFamily(rgba(0x15, 0x80, 0x3d))).toBe('green')
+    expect(hueFamily(rgba(0x99, 0x99, 0x99))).toBe('gray')
+    expect(hueFamily(rgba(0xfa, 0xfa, 0xfa))).toBe('white')
+    expect(hueFamily(rgba(0x0a, 0x0a, 0x0a))).toBe('black')
+  })
+
+  it('adopts the file’s own naming prefix and keeps names unique', () => {
+    const existing = ['color.brand.primary', 'color.text.muted', 'palette.old']
+    expect(fixModule.proposeColorName(rgba(0x18, 0x5e, 0xc1), existing)).toBe('color.blue')
+    expect(
+      fixModule.proposeColorName(rgba(0x18, 0x5e, 0xc1), [...existing, 'color.blue']),
+    ).toBe('color.blue-2')
+    // No color tokens at all: the conventional default.
+    expect(fixModule.proposeColorName(rgba(0x18, 0x5e, 0xc1), [])).toBe('color.blue')
+  })
+
+  it('names scale steps by their value', () => {
+    expect(fixModule.proposeStepName('space', 10, ['space.sm'])).toBe('space.10')
+    expect(fixModule.proposeStepName('space', 10, ['space.10'])).toBe('space.10-2')
+    expect(fixModule.proposeStepName('radius', 5, [])).toBe('radius.5')
   })
 })
 
