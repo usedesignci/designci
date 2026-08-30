@@ -13,6 +13,7 @@ export interface IssueDetailProps {
 export function IssueDetail(props: IssueDetailProps) {
   const { finding } = props
   const doc = RULE_DOCS[finding.code]
+  const isColor = finding.code === 'canvas-raw-color'
 
   return (
     <>
@@ -20,28 +21,58 @@ export function IssueDetail(props: IssueDetailProps) {
         <button class="back" onClick={props.onBack} aria-label="Back">
           <Icon name="chevron-left" size={16} />
         </button>
-        <span class={`badge ${finding.severity}`}>{doc?.title ?? finding.code}</span>
+        <h1 class="grow">{doc?.title ?? finding.code}</h1>
+        <span class={`badge ${finding.severity}`}>{finding.severity}</span>
       </div>
 
-      {finding.value !== undefined && (
-        <div class="value-chip">
-          {finding.code === 'canvas-raw-color' && (
-            <span class="swatch" style={`background:${finding.value}`} />
-          )}
-          {finding.value}
-        </div>
-      )}
+      <div class="finding-card">
+        {finding.value !== undefined && (
+          <div class="finding-value">
+            {isColor && <span class="swatch large" style={`background:${finding.value}`} />}
+            <code>{finding.value}</code>
+          </div>
+        )}
+        <p class="finding-message">{finding.message}</p>
 
-      <p>{finding.message}</p>
+        {finding.scale !== undefined && (
+          <div class="scale">
+            <span class="scale-label">Scale</span>
+            <div class="chips">
+              {finding.scale.map((step) => (
+                <span key={step} class="chip">
+                  {step}
+                </span>
+              ))}
+              <span class="chip off">{finding.value}</span>
+            </div>
+          </div>
+        )}
 
-      {finding.suggestions !== undefined && finding.suggestions.length > 0 && (
-        <p class="muted">
-          Same value as: <code>{finding.suggestions.join(', ')}</code> — bind instead of hardcoding.
-        </p>
-      )}
+        {finding.suggestions !== undefined && finding.suggestions.length > 0 && (
+          <div class="suggestion">
+            <Icon name="information-circle" size={13} />
+            <span>
+              Same value as <code>{finding.suggestions.join(', ')}</code> — bind it instead of
+              hardcoding.
+            </span>
+          </div>
+        )}
+      </div>
 
-      <h2>Where</h2>
-      <ul class="plain">
+      <div class="row section-head">
+        <h2>
+          {finding.nodes.length} {finding.nodes.length === 1 ? 'layer' : 'layers'}
+        </h2>
+        {finding.nodes.length > 1 && (
+          <button
+            class="small"
+            onClick={() => send({ type: 'select-nodes', ids: finding.nodes.map((node) => node.id) })}
+          >
+            <Icon name="viewfinder-circle" size={12} /> Select all
+          </button>
+        )}
+      </div>
+      <ul class="plain layer-list">
         {finding.nodes.map((node) => (
           <li key={node.id} class="layer-row">
             <span class="grow">{node.name}</span>
@@ -51,30 +82,22 @@ export function IssueDetail(props: IssueDetailProps) {
           </li>
         ))}
       </ul>
-      {finding.nodes.length > 1 && (
-        <p>
-          <button
-            class="small"
-            onClick={() => send({ type: 'select-nodes', ids: finding.nodes.map((node) => node.id) })}
-          >
-            Select all {finding.nodes.length}
-          </button>
-        </p>
-      )}
 
-      <h2>Actions</h2>
-      <div class="row">
+      <div class="actions">
         <button onClick={() => send({ type: 'add-ignore', key: ignoreKeyFor(finding) })}>
-          <Icon name="eye-slash" size={12} /> Ignore{' '}
-          {finding.value !== undefined ? 'this value' : 'this layer'}
+          <Icon name="eye-slash" size={13} />
+          Ignore {finding.value !== undefined ? 'this value' : 'this layer'}
         </button>
         <button onClick={() => send({ type: 'disable-rule', ruleId: finding.code })}>
-          <Icon name="no-symbol" size={12} /> Disable rule
+          <Icon name="no-symbol" size={13} />
+          Disable rule
         </button>
-        <button class="small" onClick={() => props.onRule(finding.code)}>
-          <Icon name="information-circle" size={12} /> About
+        <button onClick={() => props.onRule(finding.code)}>
+          <Icon name="information-circle" size={13} />
+          About this rule
         </button>
       </div>
+
       <p class="footer-note">
         Ignores are stored in this file and shared with the team. Disabling a rule sets its
         severity to “off” in the check config.

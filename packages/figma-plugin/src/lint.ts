@@ -126,6 +126,8 @@ export interface CanvasFinding {
   readonly nodes: readonly { readonly id: string; readonly name: string }[]
   /** Token names whose value equals — value matches, never name guesses. */
   readonly suggestions?: readonly string[]
+  /** For scale rules: the allowed values, formatted, for structured display. */
+  readonly scale?: readonly string[]
 }
 
 export interface SkipNote {
@@ -335,15 +337,18 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
         groups.add(`${value}px`, node, [])
       }
     }
+    const scale = [...spacing.keys()].sort((a, b) => a - b).map((value) => `${value}px`)
     for (const group of groups.groups()) {
       findings.push({
         code: 'canvas-raw-spacing',
         severity: severityOf('canvas-raw-spacing') as Exclude<Severity, 'off'>,
         value: group.value,
-        message: `${group.value} spacing is not in the space scale (${
-          [...spacing.keys()].sort((a, b) => a - b).join(', ') || 'no space tokens defined'
-        })`,
+        message:
+          scale.length > 0
+            ? `${group.value} spacing is not on the space scale`
+            : `${group.value} spacing found, and this file defines no space tokens`,
         nodes: group.nodes,
+        ...(scale.length > 0 ? { scale } : {}),
       })
     }
   }
@@ -365,15 +370,18 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
       if (node.cornerRadius === 0 || radii.has(node.cornerRadius)) continue
       groups.add(`${node.cornerRadius}px`, node, [])
     }
+    const scale = [...radii.keys()].sort((a, b) => a - b).map((value) => `${value}px`)
     for (const group of groups.groups()) {
       findings.push({
         code: 'canvas-raw-radius',
         severity: severityOf('canvas-raw-radius') as Exclude<Severity, 'off'>,
         value: group.value,
-        message: `${group.value} corner radius is not in the radius scale (${
-          [...radii.keys()].sort((a, b) => a - b).join(', ') || 'no radius tokens defined'
-        })`,
+        message:
+          scale.length > 0
+            ? `${group.value} corner radius is not on the radius scale`
+            : `${group.value} corner radius found, and this file defines no radius tokens`,
         nodes: group.nodes,
+        ...(scale.length > 0 ? { scale } : {}),
       })
     }
   }

@@ -77,8 +77,60 @@ ul.plain { list-style: none; margin: 0; padding: 0; }
   border: 1px solid var(--figma-color-border, #ccc); }
 
 /* Detail panels */
-.panel-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.panel-header button.back { border: 0; background: none; padding: 2px 6px; font-size: 14px; }
+.panel-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.panel-header .grow { flex: 1; min-width: 0; }
+.panel-header h1 { margin: 0; }
+.panel-header button.back {
+  border: 0; background: none; padding: 0; width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; flex: none;
+}
+.panel-header button.back:hover { background: var(--figma-color-bg-hover, #f0f0f0); }
+
+.finding-card {
+  border: 1px solid var(--figma-color-border, #e5e5e5); border-radius: 10px;
+  padding: 14px; margin-bottom: 4px;
+}
+.finding-value {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.finding-value code {
+  font-size: 15px; font-weight: 600;
+}
+.swatch.large { width: 20px; height: 20px; border-radius: 6px; }
+.finding-message { margin: 0; font-size: 13px; }
+.scale { margin-top: 12px; }
+.scale-label {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--figma-color-text-secondary, #666);
+  margin-bottom: 6px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: 600 11px/1 ui-monospace, monospace; padding: 5px 8px; border-radius: 999px;
+  background: var(--figma-color-bg-secondary, #f5f5f5);
+  border: 1px solid var(--figma-color-border, #e5e5e5);
+}
+.chip.off {
+  background: #fde2dc; border-color: #f0a9a0; color: #c22f1c;
+  text-decoration: line-through;
+}
+.suggestion {
+  display: flex; gap: 6px; align-items: flex-start; margin-top: 12px;
+  font-size: 12px; color: var(--figma-color-text-secondary, #666);
+}
+.suggestion .icon { margin-top: 1px; }
+
+.section-head { justify-content: space-between; }
+.section-head h2 { margin: 0; }
+.section-head { margin: 18px 0 8px; }
+.layer-list { margin-bottom: 4px; }
+
+.actions { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.actions button {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  font-weight: 500; text-align: left;
+}
 .badge {
   display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .05em;
   text-transform: uppercase; padding: 1px 6px; border-radius: 4px;

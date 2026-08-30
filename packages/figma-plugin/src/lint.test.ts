@@ -55,6 +55,13 @@ describe('lintCanvas — the seeded issues, and only those', () => {
     ])
   })
 
+  it('carries the allowed scale as structured data on scale rules', () => {
+    const spacing = result.findings.find((finding) => finding.code === 'canvas-raw-spacing')
+    expect(spacing?.scale).toEqual(['4px', '8px', '16px', '24px', '32px'])
+    const radius = result.findings.find((finding) => finding.code === 'canvas-raw-radius')
+    expect(radius?.scale).toEqual(['2px', '4px', '8px', '9999px'])
+  })
+
   it('fails contrast with the ratio and threshold in the message', () => {
     const contrast = result.findings.find((finding) => finding.code === 'canvas-text-contrast')
     expect(contrast?.severity).toBe('error')
