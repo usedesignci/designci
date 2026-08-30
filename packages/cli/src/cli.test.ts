@@ -22,8 +22,14 @@ interface Run {
 }
 
 async function run(...argv: string[]): Promise<Run> {
+  return runWith(undefined, ...argv)
+}
+
+/** Like `run`, but attached to a scripted "terminal" that answers prompts. */
+async function runWith(answers: readonly string[] | undefined, ...argv: string[]): Promise<Run> {
   const stdout: string[] = []
   const stderr: string[] = []
+  const remaining = answers === undefined ? undefined : [...answers]
   const code = await main({
     argv,
     cwd: root,
@@ -31,13 +37,21 @@ async function run(...argv: string[]): Promise<Run> {
     env: {},
     write: (text) => stdout.push(text),
     writeError: (text) => stderr.push(text),
+    ...(remaining === undefined
+      ? {}
+      : {
+          ask: (question: string) => {
+            stdout.push(question)
+            return Promise.resolve(remaining.shift() ?? '')
+          },
+        }),
     version: '0.0.0-test',
   })
   return { code, stdout: stdout.join('\n'), stderr: stderr.join('\n') }
 }
 
 /** The corpus, laid out on disk the way a real repo would hold it. */
-async function writeProject(): Promise<void> {
+async function writeProject(withMappings = true): Promise<void> {
   await writeFile(
     path.join(root, 'designci.config.json'),
     JSON.stringify(
@@ -47,10 +61,12 @@ async function writeProject(): Promise<void> {
           { id: 'figma', kind: 'figma', path: 'design/figma.snapshot.json' },
           { id: 'css', kind: 'css', path: 'src/styles/tokens.css' },
         ],
-        mappings: (fixture.configDocument.mappings as Record<string, string>[]).map((entry) => ({
-          figma: entry['figma'],
-          css: entry['css'],
-        })),
+        mappings: withMappings
+          ? (fixture.configDocument.mappings as Record<string, string>[]).map((entry) => ({
+              figma: entry['figma'],
+              css: entry['css'],
+            }))
+          : [],
       },
       null,
       2,
@@ -66,6 +82,10 @@ async function writeProject(): Promise<void> {
   await writeFile(path.join(root, 'src/styles/tokens.css'), smallSystemCss)
 }
 
+async function readConfig(): Promise<Record<string, unknown>> {
+  return JSON.parse(await readFile(path.join(root, 'designci.config.json'), 'utf8'))
+}
+
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'designci-'))
 })
@@ -79,16 +99,80 @@ describe('designci init', () => {
     const result = await run('init')
     expect(result.code).toBe(0)
     expect(result.stdout).toContain('designci check')
-    const written = JSON.parse(await readFile(path.join(root, 'designci.config.json'), 'utf8'))
-    expect(written.sources).toHaveLength(2)
+    const written = await readConfig()
+    expect(written['sources']).toHaveLength(2)
   })
 
-  it('refuses to overwrite an existing config', async () => {
-    await writeFile(path.join(root, 'designci.config.json'), '{"name":"precious"}')
+  it('detects conventional source files and declares them', async () => {
+    await writeProject(false)
+    await rm(path.join(root, 'designci.config.json'))
     const result = await run('init')
-    expect(result.code).toBe(2)
-    expect(result.stderr).toContain('not overwriting')
+    expect(result.code).toBe(0)
+    expect(result.stdout).toContain('design/figma.snapshot.json')
+    const written = await readConfig()
+    const paths = (written['sources'] as { path: string }[]).map((source) => source.path)
+    expect(paths).toContain('design/figma.snapshot.json')
+    expect(paths).toContain('src/styles/tokens.css')
+  })
+
+  it('never clobbers an existing config', async () => {
+    await writeFile(path.join(root, 'designci.config.json'), '{"name":"precious"}\n')
+    const result = await run('init')
+    expect(result.code).toBe(0)
     expect(await readFile(path.join(root, 'designci.config.json'), 'utf8')).toContain('precious')
+  })
+
+  it('prints suggestions without writing when not a terminal', async () => {
+    await writeProject(false)
+    const result = await run('init')
+    expect(result.code).toBe(0)
+    expect(result.stdout).toContain('agree in value')
+    expect(result.stdout).toContain('disagreeing values')
+    expect(result.stdout).toContain('Nothing was written')
+    expect((await readConfig())['mappings']).toEqual([])
+  })
+
+  it('accepts value matches in bulk with --accept-suggestions, never drift pairs', async () => {
+    await writeProject(false)
+    const result = await run('init', '--accept-suggestions')
+    expect(result.code).toBe(0)
+    const mappings = (await readConfig())['mappings'] as Record<string, string>[]
+    // 20, not 25: the drifted radius is excluded, the missing destructive
+    // colour has no counterpart, and the stylesheet splits typography into
+    // per-field variables that cannot match the composite Figma tokens.
+    expect(mappings).toHaveLength(20)
+    expect(mappings.some((entry) => entry['figma'] === 'radius.lg')).toBe(false)
+    // The drifted radius stays unmapped, so check reports it as missing, not
+    // as a mismatch — no policy was invented on the team's behalf.
+    const check = await run('check')
+    expect(check.code).toBe(0)
+  })
+
+  it('confirms interactively and records confirmed drift pairs', async () => {
+    await writeProject(false)
+    // 'a' accepts every remaining value match; '' takes the default Y on the
+    // drift question.
+    const result = await runWith(['a', ''], 'init')
+    expect(result.code).toBe(0)
+    expect(result.stdout).toContain('Values disagree')
+    const mappings = (await readConfig())['mappings'] as Record<string, string>[]
+    expect(mappings).toHaveLength(21)
+    expect(
+      mappings.some(
+        (entry) => entry['figma'] === 'radius.lg' && entry['css'] === '--radius-lg',
+      ),
+    ).toBe(true)
+    // The confirmed drift pair is now a real finding.
+    const check = await run('check')
+    expect(check.code).toBe(1)
+    expect(check.stdout).toContain('radius.lg')
+  })
+
+  it('has nothing to suggest for a fully mapped project', async () => {
+    await writeProject()
+    const result = await run('init')
+    expect(result.code).toBe(0)
+    expect(result.stdout).toContain('already mapped')
   })
 })
 

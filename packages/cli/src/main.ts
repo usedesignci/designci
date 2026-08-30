@@ -15,7 +15,14 @@ import { init } from './commands/init.js'
 const HELP = `designci — CI for your design system
 
 Usage:
-  designci init                 Write a starter designci.config.json
+  designci init                 Set up a project: write a starter config,
+                                detect sources, and suggest token mappings
+                                to confirm (mappings are only ever written
+                                after you approve them)
+  designci init --accept-suggestions
+                                Accept every value-agreeing suggested mapping
+                                without prompting (drift pairs still need
+                                interactive confirmation)
   designci check                Compare sources and report drift
   designci check --json         Print the CheckResult as JSON
   designci check --update-baseline
@@ -39,6 +46,8 @@ export interface MainIo {
   readonly env: Readonly<Record<string, string | undefined>>
   readonly write: (text: string) => void
   readonly writeError: (text: string) => void
+  /** Prompt on the terminal; absent when stdin is not interactive. */
+  readonly ask?: (question: string) => Promise<string>
   readonly version: string
 }
 
@@ -65,7 +74,16 @@ export async function main(io: MainIo): Promise<number> {
   // NO_COLOR (no-color.org): any value, even empty, disables colour.
   const color = !flags.has('--no-color') && io.env['NO_COLOR'] === undefined && io.isTty
 
-  const known = new Set(['--json', '--update-baseline', '--no-color', '-h', '--help', '-v', '--version'])
+  const known = new Set([
+    '--json',
+    '--update-baseline',
+    '--accept-suggestions',
+    '--no-color',
+    '-h',
+    '--help',
+    '-v',
+    '--version',
+  ])
   for (const flag of flags) {
     if (!known.has(flag)) {
       io.writeError(`unknown option ${flag}\n\n${HELP}`)
@@ -76,7 +94,13 @@ export async function main(io: MainIo): Promise<number> {
   const [command] = commands
   switch (command) {
     case 'init':
-      return init({ root: io.cwd, write: io.write, writeError: io.writeError })
+      return init({
+        root: io.cwd,
+        write: io.write,
+        writeError: io.writeError,
+        ...(io.ask === undefined ? {} : { ask: io.ask }),
+        acceptSuggestions: flags.has('--accept-suggestions'),
+      })
     case 'check':
       return check({
         root: io.cwd,
@@ -96,6 +120,7 @@ export async function main(io: MainIo): Promise<number> {
 const invokedDirectly = process.argv[1] !== undefined && import.meta.url.endsWith('main.js')
 if (invokedDirectly) {
   const { version } = (await import('./version.js')) as { version: string }
+  const interactive = process.stdout.isTTY === true && process.stdin.isTTY === true
   const code = await main({
     argv: process.argv.slice(2),
     cwd: process.cwd(),
@@ -103,6 +128,19 @@ if (invokedDirectly) {
     env: process.env,
     write: (text) => process.stdout.write(`${text}\n`),
     writeError: (text) => process.stderr.write(`${text}\n`),
+    ...(interactive
+      ? {
+          ask: async (question: string): Promise<string> => {
+            const { createInterface } = await import('node:readline/promises')
+            const readline = createInterface({ input: process.stdin, output: process.stdout })
+            try {
+              return await readline.question(question)
+            } finally {
+              readline.close()
+            }
+          },
+        }
+      : {}),
     version,
   })
   process.exitCode = code
