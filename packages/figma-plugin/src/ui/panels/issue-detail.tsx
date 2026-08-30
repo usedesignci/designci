@@ -1,3 +1,4 @@
+import { describeFix } from '../../fix.js'
 import type { CanvasFinding } from '../../lint.js'
 import { ignoreKeyFor } from '../../ignores.js'
 import { RULE_DOCS } from '../../rule-docs.js'
@@ -84,6 +85,26 @@ export function IssueDetail(props: IssueDetailProps) {
       </ul>
 
       <div class="actions">
+        {finding.fix !== undefined && (
+          <button
+            class="fix"
+            onClick={() => {
+              const fix = finding.fix
+              if (fix === undefined) return
+              send({
+                type: 'apply-fix',
+                code: finding.code,
+                ...(finding.value === undefined ? {} : { value: finding.value }),
+                nodes: finding.nodes.map((node) => node.id),
+                fix,
+              })
+              props.onBack()
+            }}
+          >
+            <Icon name="check-circle" size={13} />
+            {describeFix(finding.fix)}
+          </button>
+        )}
         <button onClick={() => send({ type: 'add-ignore', key: ignoreKeyFor(finding) })}>
           <Icon name="eye-slash" size={13} />
           Ignore {finding.value !== undefined ? 'this value' : 'this layer'}

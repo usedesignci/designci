@@ -19,6 +19,7 @@ import {
 
 import { collectCanvas, collectComponents, collectDocument } from './collect.js'
 import { extractSnapshot } from './extract.js'
+import { describeFix, type CanvasFix } from './fix.js'
 import { parseIgnores } from './ignores.js'
 import { CANVAS_RULE_IDS, lintCanvas, tokenBreakdown } from './lint.js'
 import type { MainMessage, ScanPayload, ScanStepId, UiMessage } from './messages.js'
@@ -192,6 +193,152 @@ async function scan(silent = false): Promise<ScanPayload> {
 }
 
 /* ------------------------------------------------------------------ *
+ * Applying fixes: boundary code only. fix.ts decided WHAT; this walks the
+ * named nodes and does it — bindings and values via the figma API, nothing
+ * else. A variable that vanished since the scan aborts with a message
+ * rather than half-applying.
+ * ------------------------------------------------------------------ */
+
+/** Token names are dotted (`color.brand.primary`); variables use slashes. */
+async function findVariableByTokenName(
+  name: string,
+  type: VariableResolvedDataType,
+): Promise<Variable | undefined> {
+  const variables = await figma.variables.getLocalVariablesAsync(type)
+  return variables.find((variable) => variable.name.split('/').join('.') === name)
+}
+
+/** Canonical hex of a solid paint, mirroring lint.ts exactly so "the paint
+ * this finding was about" matches byte for byte. */
+function paintHex(paint: SolidPaint): string {
+  const channel = (value: number): number => Math.round(Math.min(1, Math.max(0, value)) * 255)
+  const pair = (value: number): string => value.toString(16).padStart(2, '0')
+  const alpha = Math.round((paint.opacity ?? 1) * 10000) / 10000
+  const base = `#${pair(channel(paint.color.r))}${pair(channel(paint.color.g))}${pair(channel(paint.color.b))}`
+  return alpha === 1 ? base : `${base}${pair(Math.round(alpha * 255))}`
+}
+
+function hexToRgb(hex: string): RGB {
+  const clean = hex.replace('#', '')
+  return {
+    r: Number.parseInt(clean.slice(0, 2), 16) / 255,
+    g: Number.parseInt(clean.slice(2, 4), 16) / 255,
+    b: Number.parseInt(clean.slice(4, 6), 16) / 255,
+  }
+}
+
+/** Rebinds every unbound solid paint matching `targetHex` in fills/strokes. */
+function bindMatchingPaints(node: SceneNode, targetHex: string, variable: Variable): number {
+  let bound = 0
+  for (const prop of ['fills', 'strokes'] as const) {
+    const paints = (node as GeometryMixin)[prop]
+    if (!Array.isArray(paints)) continue
+    const next = paints.map((paint) => {
+      if (
+        paint.type !== 'SOLID' ||
+        paint.boundVariables?.color !== undefined ||
+        paintHex(paint) !== targetHex
+      ) {
+        return paint
+      }
+      bound += 1
+      return figma.variables.setBoundVariableForPaint(paint, 'color', variable)
+    })
+    if (bound > 0) (node as GeometryMixin)[prop] = next
+  }
+  return bound
+}
+
+const RADIUS_FIELDS = [
+  'topLeftRadius',
+  'topRightRadius',
+  'bottomLeftRadius',
+  'bottomRightRadius',
+] as const
+const SPACING_FIELDS = [
+  'itemSpacing',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+] as const
+
+async function applyFix(
+  code: string,
+  value: string | undefined,
+  nodeIds: readonly string[],
+  fix: CanvasFix,
+): Promise<void> {
+  const nodes = (
+    await Promise.all(nodeIds.map((id) => figma.getNodeByIdAsync(id)))
+  ).filter((node): node is SceneNode => node !== null && 'visible' in node)
+  if (nodes.length === 0) {
+    figma.notify('Those layers no longer exist; run the scan again.')
+    return
+  }
+
+  let touched = 0
+
+  switch (fix.kind) {
+    case 'bind-color': {
+      const variable = await findVariableByTokenName(fix.variableName, 'COLOR')
+      if (variable === undefined || value === undefined) {
+        figma.notify(`Variable ${fix.variableName} no longer exists; re-scan.`, { error: true })
+        return
+      }
+      for (const node of nodes) touched += bindMatchingPaints(node, value, variable)
+      break
+    }
+    case 'snap-dimension': {
+      const variable = await findVariableByTokenName(fix.variableName, 'FLOAT')
+      const from = value === undefined ? Number.NaN : Number.parseFloat(value)
+      const fields = code === 'canvas-raw-radius' ? RADIUS_FIELDS : SPACING_FIELDS
+      for (const node of nodes) {
+        for (const field of fields) {
+          const record = node as unknown as Record<string, unknown>
+          const current = record[field]
+          if (typeof current !== 'number') continue
+          // Only the offending value moves; other fields on the node stay put.
+          if (!Number.isNaN(from) && current !== from) continue
+          if ((node.boundVariables as Record<string, unknown> | undefined)?.[field]) continue
+          if (variable !== undefined) {
+            node.setBoundVariable(field as VariableBindableNodeField, variable)
+          } else {
+            record[field] = fix.px
+          }
+          touched += 1
+        }
+      }
+      break
+    }
+    case 'recolor-text': {
+      const variable =
+        fix.variableName === undefined
+          ? undefined
+          : await findVariableByTokenName(fix.variableName, 'COLOR')
+      const paint: SolidPaint = { type: 'SOLID', color: hexToRgb(fix.hex) }
+      const finalPaint =
+        variable === undefined
+          ? paint
+          : figma.variables.setBoundVariableForPaint(paint, 'color', variable)
+      for (const node of nodes) {
+        if (node.type !== 'TEXT') continue
+        node.fills = [finalPaint]
+        touched += 1
+      }
+      break
+    }
+  }
+
+  if (touched === 0) {
+    figma.notify('Nothing left to fix — those layers may have changed; re-scan.')
+  } else {
+    figma.notify(`${describeFix(fix)} — ${touched} ${touched === 1 ? 'change' : 'changes'} applied.`)
+  }
+  scheduleAutoScan(0)
+}
+
+/* ------------------------------------------------------------------ *
  * Auto-scan: the plugin notices changes itself.
  *
  * Figma's granular events cover canvas edits (`nodechange` on the current
@@ -345,6 +492,10 @@ async function handle(message: UiMessage): Promise<void> {
       const { settings } = loadSync()
       saveSync(settings, message.hash)
       await postSyncState(message.hash)
+      return
+    }
+    case 'apply-fix': {
+      await applyFix(message.code, message.value, message.nodes, message.fix)
       return
     }
     case 'save-config': {

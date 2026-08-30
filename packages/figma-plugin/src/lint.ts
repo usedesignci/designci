@@ -29,6 +29,7 @@ import {
 } from '@designci/core'
 
 import { aaThreshold, contrastRatio, passesAa } from './contrast.js'
+import { contrastFix, nearestStep, type CanvasFix, type ColorTokenEntry } from './fix.js'
 import { isIgnored } from './ignores.js'
 
 /* ------------------------------------------------------------------ *
@@ -128,6 +129,8 @@ export interface CanvasFinding {
   readonly suggestions?: readonly string[]
   /** For scale rules: the allowed values, formatted, for structured display. */
   readonly scale?: readonly string[]
+  /** One-click remedy, when one exists that invents nothing (see fix.ts). */
+  readonly fix?: CanvasFix
 }
 
 export interface SkipNote {
@@ -218,6 +221,22 @@ interface Group {
   readonly suggestions: readonly string[]
 }
 
+/** The snap fix for an off-scale value: nearest step, bound to the token
+ * holding it. The full-bleed 9999px "pill" step is excluded as a snap target —
+ * snapping a 12px radius to a capsule would be a redesign, not a fix. */
+function snapFix(
+  value: string,
+  index: ReadonlyMap<number, string[]>,
+): { fix: CanvasFix } | Record<string, never> {
+  const px = Number.parseFloat(value)
+  if (Number.isNaN(px)) return {}
+  const steps = [...index.keys()].filter((step) => step < 999)
+  const nearest = nearestStep(px, steps)
+  const variableName = nearest === undefined ? undefined : index.get(nearest)?.[0]
+  if (nearest === undefined || variableName === undefined) return {}
+  return { fix: { kind: 'snap-dimension', px: nearest, variableName } }
+}
+
 function groupBy(): {
   add: (value: string, node: CanvasNodeData, suggestions: readonly string[]) => void
   groups: () => Group[]
@@ -282,6 +301,9 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
   const colors = colorTokenIndex(snapshot)
   const spacing = dimensionValues(snapshot, 'space')
   const radii = dimensionValues(snapshot, 'radius')
+  const colorTokens: readonly ColorTokenEntry[] = snapshot.tokens
+    .filter((token) => token.value.kind === 'color')
+    .map((token) => ({ name: tokenName(token), rgba: (token.value as ColorValue).rgba }))
   const byId = new Map(canvas.nodes.map((node) => [node.id, node]))
 
   // Nodes inside instances mirror their main component; the fix belongs on the
@@ -317,6 +339,9 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
             : `${group.value} is used raw on ${where} and matches no token in this file`,
         nodes: group.nodes,
         ...(group.suggestions.length > 0 ? { suggestions: group.suggestions } : {}),
+        ...(group.suggestions[0] === undefined
+          ? {}
+          : { fix: { kind: 'bind-color', variableName: group.suggestions[0] } as CanvasFix }),
       })
     }
   }
@@ -349,6 +374,7 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
             : `${group.value} spacing found, and this file defines no space tokens`,
         nodes: group.nodes,
         ...(scale.length > 0 ? { scale } : {}),
+        ...snapFix(group.value, spacing),
       })
     }
   }
@@ -382,6 +408,7 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
             : `${group.value} corner radius found, and this file defines no radius tokens`,
         nodes: group.nodes,
         ...(scale.length > 0 ? { scale } : {}),
+        ...snapFix(group.value, radii),
       })
     }
   }
@@ -452,12 +479,14 @@ export function lintCanvas(input: LintInput): CanvasLintResult {
       const weight = node.text.fontWeight
       if (passesAa(ratio, node.text.fontSize, weight)) continue
 
+      const remedy = contrastFix(textColor, background, node.text.fontSize, weight, colorTokens)
       findings.push({
         code: 'canvas-text-contrast',
         severity: severityOf('canvas-text-contrast') as Exclude<Severity, 'off'>,
         value: `${hex(textColor)} on ${hex(background)}`,
         message: `"${node.name}" has ${ratio}:1 contrast; WCAG AA needs ${aaThreshold(node.text.fontSize, weight)}:1 at ${node.text.fontSize}px`,
         nodes: [{ id: node.id, name: node.name }],
+        fix: { kind: 'recolor-text', ...remedy },
       })
     }
   }

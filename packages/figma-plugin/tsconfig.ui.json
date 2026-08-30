@@ -7,6 +7,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact"
   },
-  "include": ["src/ui/**/*", "src/messages.ts", "src/lint.ts", "src/contrast.ts", "src/ignores.ts", "src/rule-docs.ts", "src/sync.ts"],
+  "include": ["src/ui/**/*", "src/messages.ts", "src/lint.ts", "src/contrast.ts", "src/ignores.ts", "src/rule-docs.ts", "src/sync.ts", "src/fix.ts"],
   "references": [{ "path": "../core" }]
 }

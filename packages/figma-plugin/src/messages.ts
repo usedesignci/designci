@@ -8,7 +8,8 @@
 
 import type { CheckResult, DesignSystemSnapshot } from '@designci/core'
 
-import type { CanvasLintResult, ComponentInventory } from './lint.js'
+import type { CanvasFix } from './fix.js'
+import type { CanvasLintResult, CanvasRuleId, ComponentInventory } from './lint.js'
 import type { SyncSettings } from './sync.js'
 
 /* ------------------------------------------------------------------ *
@@ -42,6 +43,15 @@ export type UiMessage =
   | { readonly type: 'push-snapshot' }
   /** The UI's push succeeded; record the pushed content hash. */
   | { readonly type: 'record-push'; readonly hash: string }
+  /** Apply a lint finding's one-click fix to its nodes (see fix.ts). */
+  | {
+      readonly type: 'apply-fix'
+      readonly code: CanvasRuleId
+      /** The finding's grouped value, e.g. '#ff6b00' or '10px'. */
+      readonly value?: string
+      readonly nodes: readonly string[]
+      readonly fix: CanvasFix
+    }
 
 /* ------------------------------------------------------------------ *
  * main -> UI

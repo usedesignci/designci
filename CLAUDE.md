@@ -100,6 +100,10 @@ packages/figma-plugin/src/
                off-scale spacing/radii, detached instances, WCAG contrast).
                Judgments are binding state + value equality only; findings
                never enter healthScore()
+  fix.ts       pure auto-fix decisions: bind value-equal colors, snap to the
+               nearest scale step, recolor failing text (existing passing token
+               preferred, computed color only as fallback); never invents a
+               name or variable. main.ts applies them at the boundary
   contrast.ts  pure WCAG math; ignores.ts pure ignore keys; rule-docs.ts prose
   sync.ts      pure: snapshot content hash (exportedAt excluded), commit/PR
                copy, SyncSettings parsing — the judgments behind repo sync

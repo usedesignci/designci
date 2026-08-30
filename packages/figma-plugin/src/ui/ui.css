@@ -208,6 +208,11 @@ nav.tabs button.active { color: var(--brand); font-weight: 700; }
 .actions { display: flex; flex-direction: column; gap: 6px; margin-top: var(--space-4); }
 .actions button { display: flex; align-items: center; gap: var(--space-2); width: 100%;
   font-weight: 500; text-align: left; }
+.actions button.fix {
+  background: var(--brand-soft); font-weight: 600; color: var(--brand-emphasis);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+}
+.actions button.fix:hover { background: color-mix(in srgb, var(--brand) 20%, transparent); }
 .doc p { margin: 0 0 10px; font-size: 13px; }
 
 /* Scanning progress */

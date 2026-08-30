@@ -69,6 +69,38 @@ describe('lintCanvas — the seeded issues, and only those', () => {
     expect(contrast?.message).toMatch(/4\.5:1/)
   })
 
+  it('attaches one-click fixes that invent nothing', () => {
+    const byCode = new Map(result.findings.map((finding) => [`${finding.code}:${finding.value ?? ''}`, finding]))
+    // A raw color whose value exists as a token binds to it.
+    expect(byCode.get('canvas-raw-color:#ff6b00')?.fix).toEqual({
+      kind: 'bind-color',
+      variableName: 'color.brand.primary',
+    })
+    // A raw color matching nothing has no fix — inventing a variable is a
+    // human act, not an auto-fix.
+    expect(byCode.get('canvas-raw-color:#123456')?.fix).toBeUndefined()
+    // Off-scale values snap to the nearest step, bound to its token.
+    expect(byCode.get('canvas-raw-spacing:10px')?.fix).toEqual({
+      kind: 'snap-dimension',
+      px: 8,
+      variableName: 'space.sm',
+    })
+    expect(byCode.get('canvas-raw-radius:5px')?.fix).toEqual({
+      kind: 'snap-dimension',
+      px: 4,
+      variableName: 'radius.md',
+    })
+    // Failing text switches to the nearest existing token that passes AA.
+    expect(byCode.get('canvas-text-contrast:#999999 on #ffffff')?.fix).toEqual({
+      kind: 'recolor-text',
+      hex: '#6b6b76',
+      variableName: 'color.text.muted',
+      ratio: 5.26,
+    })
+    // Reattaching a detached instance is a judgment call, not a fix.
+    expect(result.findings.find((f) => f.code === 'canvas-detached-instance')?.fix).toBeUndefined()
+  })
+
   it('surfaces what it could not judge instead of staying silent (invariant 7)', () => {
     expect(
       result.skipped.map((note) => `${note.code}:${note.nodeName}`).sort(),
